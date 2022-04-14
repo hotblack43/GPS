@@ -1,0 +1,111 @@
+---
+title: "Ruth's GPS"
+output: 
+  pdf_document: 
+    fig_height: 9
+    fig_caption: yes
+---
+
+ 
+
+```{r}
+rm(list=ls())
+library(dplyr)
+library(lubridate)
+setwd("~/WORKSHOP/GPS/")
+
+df <- read.csv("DATA/AdvancedExport_2022-04-13 16_40_31Z.csv",header=TRUE)
+# clean out columns with only NA
+
+not_all_na <- function(x) any(!is.na(x))
+not_any_na <- function(x) all(!is.na(x))
+
+
+#
+unique_names <- unique(df$UnitName)
+unique_names
+
+```
+
+# read
+```{r}
+statdat <- NULL
+for (istat in unique_names)
+{
+  idx <- which(df$UnitName == istat)
+  df2 <- df[idx,] %>% select(where(not_all_na))  
+  cnams <- colnames(df2)
+  #
+  if (which(cnams == "Longitude") !=0){
+  lon <- df2$Longitude
+  lat <- df2$Latitude
+  }
+  
+  
+  #temperature <- df2$Temperature..C.
+  #acceleration <- sqrt(df2$AccelerationX.g.^2+df2$AccelerationY.g.^2+df2$AccelerationZ.g.^2)
+  #lightlevel <- df2$LightLevel
+  time <- as.POSIXct(df2$Timestamp.UTC,tz="UTC")
+  idx <- which(time >= as.POSIXct("2022-03-19 00:00:00"))
+  data <- cbind.data.frame(lon,lat,time)
+  data <- na.omit(data)
+  colnames(data) <- c("lon","lat","tUTC")
+  saveRDS(data,paste0('OUTPUT/',istat,'.rds'))
+  #
+  #par(mfrow=c(3,1))
+  #plot(time,temperature,ylab="T [C]",main=istat)
+  #plot(time,lightlevel,ylab="LightLevel",main=istat)
+  #if (length(which(!is.na(acceleration))) > 3) {    plot(time,acceleration,ylab="a [g]",main=istat)    abline(h=1,col=2,lwd=3)}
+  
+}
+```
+
+# relative to Fjeldrype
+```{r}
+par(mfrow=c(4,3))
+idx <- which(unique_names == "Fjeldrype 860640050232018")
+unique_names <- unique_names[-idx]
+unique_names
+
+base_station <- readRDS("OUTPUT/Fjeldrype 860640050232018.rds")
+colnames(base_station)[3] <- "POSIX"
+
+#
+for (jstat in 1:length(unique_names))
+{
+  print(jstat)
+  statname <- unique_names[jstat]
+  print(statname)
+  
+  
+  other <- readRDS(paste0("OUTPUT/",statname,".rds"))
+  colnames(other)[3] <- "POSIX"
+  tmin <- max(c(min(base_station$POSIX),min(other$POSIX)))
+  tmax <- min(max(base_station$POSIX),max(other$POSIX))
+  idx <- which(base_station$POSIX >= tmin & base_station$POSIX <= tmax)
+  base_station <- base_station[idx,]
+  idx <- which(other$POSIX >= tmin & other$POSIX <= tmax)
+  other <- other[idx,]
+  #Interpolate to same times as in 'base_station'
+  common_t <- base_station$POSIX
+  lon_other_interp <- approx(other$POSIX,other$lon,base_station$POSIX,na.rm=TRUE)$y
+  lat_other_interp <- approx(other$POSIX,other$lat,base_station$POSIX,na.rm=TRUE)$y
+  #
+  interp_lon <- na.omit(cbind.data.frame(common_t,lon_other_interp))
+  colnames(interp_lon) <- c("POSIX","lon_i")
+  interp_lat <- na.omit(cbind.data.frame(common_t,lat_other_interp))
+  colnames(interp_lat) <- c("POSIX","lat_i")
+  together <- merge(base_station,interp_lon,by="POSIX")
+  together <- merge(together,interp_lat,by="POSIX")
+  delta_lon <- together$lon_i-together$lon
+  delta_lat <- together$lat_i-together$lat
+  together <- cbind(together,delta_lon,delta_lat)
+  saveRDS(together,paste0("OUTPUT/processed_",statname,".rds"))
+  print(paste(statname,sd(together$delta_lon),sd(together$delta_lat)))
+  plot(together$delta_lon,together$delta_lat,main=statname,xlab="offset lon",ylab="offset lat",pch=19,cex=0.2,type="b")
+  
+}
+```
+
+
+
