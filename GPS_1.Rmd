@@ -1,169 +1,111 @@
 ---
-title: "Project EVs, then calculate RLs, then AFs"
+title: "Ruth's GPS"
 output: 
   pdf_document: 
-    fig_height: 6
+    fig_height: 9
     fig_caption: yes
 ---
 
-Build projections for extremes and calculate RLs, AFs, based on files stored by code "rLargest_Esbjerg_v6looper.Rmd"
-Might use the Smith 1986 notation
+ 
 
-eta = M + T + S (sea-level = msl + tides + surges)
-
-```{r}
+```{r, message=FALSE}
 rm(list=ls())
-library(Hmisc)
-library(eva)
-library(extRemes)
-library(forecast)
-library(MASS)
-library(fExtremes)
-library(Rfast)
+library(dplyr)
+library(lubridate)
+setwd("~/WORKSHOP/GPS/")
 
+df <- read.csv("DATA/AdvancedExport_2022-04-13 16_40_31Z.csv",header=TRUE)
+# clean out columns with only NA
 
+not_all_na <- function(x) any(!is.na(x))
+not_any_na <- function(x) all(!is.na(x))
 
-setwd("~/WORKSHOP/newESBJERG/")
-df_S <- readRDS("OUTPUT/allmodels_stationary.rds")
-df_NS <- readRDS("OUTPUT/allmodels_Non_stationary.rds")
-# select best models
-# Stationary
-rmax <- 40 # 1-40 available
-tau <- 50 # a set 1,10,50,100 available
-Sname <- paste0("OUTPUT/MODELS/gevrFit_S_tau_",tau,"_r_",rmax,".rds")
-best_S_model <- readRDS(Sname)
-NSname <- paste0("OUTPUT/MODELS/gevrFit_NS_tau_",tau,"_r_",rmax,".rds")
-best_NS_model <- readRDS(NSname)
 
 #
-rps <- c(2,5,10,20,50,100,250) # Return Periods in years
-# Load Guttorps 10.000 msl simulations for 1:86 years
-load("DATA/EsbjergSim_2021_recent_GIAupdated.Rdata")
-# 'sim' now holds the 10000 MSL simulations, each for 86 years
-nsims <- dim(sim)[1]
-nyears <- dim(sim)[2]
-
-# Fetch KDI return levels
-KDI <- read.csv("DATA/KDI2017_tabel_Esbjerg.csv",sep=",",header=TRUE)
-KDI[,2] <- KDI[,2]+11
-KDI[,3] <- KDI[,3]+11
-KDI[,4] <- KDI[,4]+11
+unique_names <- unique(df$UnitName)
+unique_names
 
 ```
-# Using the varcov matrix for S and NS draw 10.000 sets of parameters
-```{r}
-# Stationary EV model parameters
-alpha_S <-  rmvnorm(10000, mu=best_S_model$par.ests, sigma=best_S_model$varcov)
-# Non-stationary EV model parameters
-alpha_NS <-  rmvnorm(10000, mu=best_NS_model$par.ests, sigma=best_NS_model$varcov)
-pdf("FIGURES/S_and_NS_parameter_drawings.pdf")
-# plot for S
-par(mfrow=c(3,2))
-plot(alpha_S[,c(1,2)],pch=19,cex=0.2,main="Stationary",xlab="loc",ylab="scale")
-plot(alpha_S[,c(1,3)],pch=19,cex=0.2,main="Stationary",xlab="loc",ylab="shape")
-abline(h=0,col=2,lwd=3)
-plot(alpha_S[,c(2,3)],pch=19,cex=0.2,main="Stationary",xlab="scale",ylab="shape")
-abline(h=0,col=2,lwd=3)
-# plot for NS
-par(mfrow=c(3,2))
-plot(alpha_NS[,c(1,2)],pch=19,cex=0.2,main="Non-Stationary",xlab="loc0",ylab="loc1")
-plot(alpha_NS[,c(1,3)],pch=19,cex=0.2,main="Non-Stationary",xlab="loc0",ylab="scale")
-plot(alpha_NS[,c(1,4)],pch=19,cex=0.2,main="Non-Stationary",xlab="loc0",ylab="shape")
-abline(h=0,col=2,lwd=2)
-plot(alpha_NS[,c(2,3)],pch=19,cex=0.2,main="Non-Stationary",xlab="loc1",ylab="scale")
-plot(alpha_NS[,c(2,4)],pch=19,cex=0.2,main="Non-Stationary",xlab="loc1",ylab="shape")
-abline(h=0,col=2,lwd=2)
-plot(alpha_NS[,c(3,4)],pch=19,cex=0.2,main="Non-Stationary",xlab="scale",ylab="shape")
-abline(h=0,col=2,lwd=2)
-dev.off()
-```
 
-# Define function for empirical return levels 
+# read
 ```{r}
-getEmpiricalRLs <- function(series,rps)
+statdat <- NULL
+for (istat in unique_names)
 {
-  sample <- series
-  RL <- quantile(sample,probs=1-1/rps)
-  return(RL)
+  idx <- which(df$UnitName == istat & df$Longitude < -65)
+  df2 <- df[idx,] %>% select(where(not_all_na))  
+  cnams <- colnames(df2)
+  #
+  if (which(cnams == "Longitude") !=0){
+  lon <- df2$Longitude
+  lat <- df2$Latitude
+  plot(lon,lat,main=istat)
+  }
+  
+  
+  #temperature <- df2$Temperature..C.
+  #acceleration <- sqrt(df2$AccelerationX.g.^2+df2$AccelerationY.g.^2+df2$AccelerationZ.g.^2)
+  #lightlevel <- df2$LightLevel
+  time <- as.POSIXct(df2$Timestamp.UTC,tz="UTC")
+  idx <- which(time >= as.POSIXct("2022-03-19 00:00:00"))
+  data <- cbind.data.frame(lon,lat,time)
+  data <- na.omit(data)
+  colnames(data) <- c("lon","lat","tUTC")
+  saveRDS(data,paste0('OUTPUT/',istat,'.rds'))
+  #
+  #par(mfrow=c(3,1))
+  #plot(time,temperature,ylab="T [C]",main=istat)
+  #plot(time,lightlevel,ylab="LightLevel",main=istat)
+  #if (length(which(!is.na(acceleration))) > 3) {    plot(time,acceleration,ylab="a [g]",main=istat)    abline(h=1,col=2,lwd=3)}
+  
 }
 ```
 
-
-# Build RLs for S models
+# relative to Fjeldrype
 ```{r}
-# Stationary
-# use the drawn parameters to build EVs drawn from the model
-loc0_par_drawn <- alpha_S[,1]
-scale_par_drawn <- alpha_S[,2]
-xi_par_drawn <- alpha_S[,3]
-eta_S <- matrix(NA,nrow=nsims,ncol=86)
-RLs <- NULL
+par(mfrow=c(4,3))
+idx <- which(unique_names == "Fjeldrype 860640050232018")
+unique_names <- unique_names[-idx]
+unique_names
+
+base_station <- readRDS("OUTPUT/Fjeldrype 860640050232018.rds")
+colnames(base_station)[3] <- "POSIX"
+
 #
-for (idrawing in 1:nsims)
+for (jstat in 1:length(unique_names))
 {
-  #EVdrawing <- rgev(86, mu=(loc0_par_drawn+loc1_par_drawn*new_msl), beta=scale_par_drawn, xi = xi_par_drawn)
-  EV_S_drawing <- rgev(86, mu=loc0_par_drawn[idrawing], beta=scale_par_drawn[idrawing], xi = xi_par_drawn[idrawing])
-  eta_S[idrawing,] <- sim[idrawing,] + EV_S_drawing
-  RLs <- rbind(RLs,getEmpiricalRLs(eta_S[idrawing,],rps))
+  print(jstat)
+  statname <- unique_names[jstat]
+  print(statname)
+  
+  
+  other <- readRDS(paste0("OUTPUT/",statname,".rds"))
+  colnames(other)[3] <- "POSIX"
+  tmin <- max(c(min(base_station$POSIX),min(other$POSIX)))
+  tmax <- min(max(base_station$POSIX),max(other$POSIX))
+  idx <- which(base_station$POSIX >= tmin & base_station$POSIX <= tmax)
+  base_station <- base_station[idx,]
+  idx <- which(other$POSIX >= tmin & other$POSIX <= tmax)
+  other <- other[idx,]
+  #Interpolate to same times as in 'base_station'
+  common_t <- base_station$POSIX
+  lon_other_interp <- approx(other$POSIX,other$lon,base_station$POSIX,na.rm=TRUE)$y
+  lat_other_interp <- approx(other$POSIX,other$lat,base_station$POSIX,na.rm=TRUE)$y
+  #
+  interp_lon <- na.omit(cbind.data.frame(common_t,lon_other_interp))
+  colnames(interp_lon) <- c("POSIX","lon_i")
+  interp_lat <- na.omit(cbind.data.frame(common_t,lat_other_interp))
+  colnames(interp_lat) <- c("POSIX","lat_i")
+  together <- merge(base_station,interp_lon,by="POSIX")
+  together <- merge(together,interp_lat,by="POSIX")
+  delta_lon <- together$lon_i-together$lon
+  delta_lat <- together$lat_i-together$lat
+  together <- cbind(together,delta_lon,delta_lat)
+  saveRDS(together,paste0("OUTPUT/processed_",statname,".rds"))
+  print(paste(statname,sd(together$delta_lon),sd(together$delta_lat)))
+  plot(together$delta_lon,together$delta_lat,main=statname,xlab="offset lon",ylab="offset lat",pch=19,cex=0.2,type="b")
+  
 }
-# get cis for the RLs
-RL_S_tabwCIs <- NULL
-# build CIs and a nice table
-for (irp in 1:length(rps))
-{
-  RL_S_tabwCIs <- rbind.data.frame(RL_S_tabwCIs,c(rps[irp],quantile(RLs[,irp],probs=c(0.05,0.5,0.95))))
-}
-colnames(RL_S_tabwCIs) <- c("RP","5%","50%","95%")
-
-```
-
-# Build RLs for NS models and get the RLs for year 1, 43 and 86 
-```{r}
-# Non-Stationary
-# use the drawn parameters to build EVs drawn from the model
-loc0_par_drawn <- alpha_NS[,1]
-loc1_par_drawn <- alpha_NS[,2]
-scale_par_drawn <- alpha_NS[,3]
-xi_par_drawn <- alpha_NS[,4]
-eta_NS <- matrix(NA,nrow=nsims,ncol=86)
-RLs_NS_1 <- NULL
-RLs_NS_43 <- NULL
-RLs_NS_86 <- NULL
-#
-for (idrawing in 1:nsims)
-{
-  EV_NS_drawing <- rgev(86, mu=(loc0_par_drawn[idrawing]+loc1_par_drawn[idrawing]*sim[idrawing,]), beta=scale_par_drawn[idrawing], xi = xi_par_drawn[idrawing])
-  #EV_S_drawing <- rgev(86, mu=loc0_par_drawn[idrawing], beta=scale_par_drawn[idrawing], xi = xi_par_drawn[idrawing])
-  eta_NS[idrawing,] <- sim[idrawing,] + EV_NS_drawing
-  # must do separately for year 1, 43 and 86
-   RLs_NS_1 <- rbind(RLs_NS,getEmpiricalRLs(eta_NS[idrawing,1],rps))
-  RLs_NS_43 <- rbind(RLs_NS,getEmpiricalRLs(eta_NS[idrawing,43],rps))
-  RLs_NS_86 <- rbind(RLs_NS,getEmpiricalRLs(eta_NS[idrawing,86],rps))
-}
-# get cis for the RLs_NS
-RL_NS_tabwCIs <- NULL
-for (irp in 1:length(rps))
-{
-  RL_NS_tabwCIs <- rbind.data.frame(RL_NS_tabwCIs,c(rps[irp],quantile(RLs_NS[,irp],probs=c(0.05,0.5,0.95))))
-}
-colnames(RL_NS_tabwCIs) <- c("RP","5%","50%","95%")
-
-```
-
-# Plots
-```{r}
-# The stationary RLs as function of RP,along with KDI
-plot(RL_S_tabwCIs[,c(1,3)],lwd=3,type="l",ylim=c(250,600),main="Stationary",xlab="Return Period [y]",log="x",ylab="Return level [cm]")
-lines(RL_S_tabwCIs[,c(1,2)],lwd=2,lty=2)
-lines(RL_S_tabwCIs[,c(1,4)],lwd=2,lty=2)
-#
-lines(KDI[,c(1,3)],col=4,lwd=3)
-lines(KDI[,c(1,2)],col=4,lwd=2,lty=2)
-lines(KDI[,c(1,4)],col=4,lwd=2,lty=2)
-```
-# The non-stationary RLs depend on time (or MSL(t)), so the plots are different
-```{r}
-
 ```
 
 
