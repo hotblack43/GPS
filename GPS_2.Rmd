@@ -74,9 +74,7 @@ for (istat in unique_names)
   df2 <- df[idx,] %>% select(where(not_all_na))  
   cnams <- colnames(df2)
   time <- as.POSIXct(df2$Timestamp.UTC,tz="UTC")
-  idx <- which(time >= as.POSIXct("2022-03-19 00:00:00"))
-  df2 <- df2[idx,]
-  df2 <- na.omit(df2)
+  #df2 <- na.omit(df2)
   time <- as.POSIXct(df2$Timestamp.UTC,tz="UTC")
   #
   lon <- df2$Longitude
@@ -113,6 +111,22 @@ for (istat in unique_names)
 
 ```
 
+
+# Remove dogsled series
+```{r}
+idx <- which(unique_names == "Landsvale 860640050251737")
+unique_names <- unique_names[-idx]
+idx <- which(unique_names == "Strandskade 860640050251356")
+unique_names <- unique_names[-idx]
+idx <- which(unique_names == "Ravn 860640050244401")
+unique_names <- unique_names[-idx]
+idx <- which(unique_names == "Stenpikkere 860640050244062")
+unique_names <- unique_names[-idx]
+#idx <- which(unique_names == "Stenpikkere 860640050244062")
+#unique_names <- unique_names[-idx]
+```
+
+
 ```{r}
 pdf("FIGURES/speed_vs_time.pdf")
 # same t-axis
@@ -124,50 +138,29 @@ for (istat in unique_names)
   df <- readRDS(paste0('OUTPUT/',istat,'.rds'))
   idx <- order(df$POSIX)
   df <- df[idx,]
-  if (ic == 1){   plot(df$POSIX,df$speed, type="b", pch=ic+14,cex=0.8, xlab="Dat/Time", ylab="speed [hm/hr]", col=colnames[ic], ylim=c(0,15), main="Starting March 29th 2022 at 12 UTC", 
-                       xlim=c(as.POSIXct("2022-03-29 12:00:00",tz="UTC"), as.POSIXct("2022-04-15 00:00:00",tz="UTC")))     } 
+  if (ic == 1){   plot(df$POSIX,df$speed, type="b", pch=ic+14,cex=0.8, xlab="Date/Time", ylab="speed [km/hr]", col=colnames[ic], ylim=c(0,6), main="Starting March 28th 2022 at 00 UTC", 
+                       xlim=c(as.POSIXct("2022-03-28 00:00:00",tz="UTC"), as.POSIXct("2022-03-31 23:59:59",tz="UTC")))     } 
   else{   lines(df$POSIX,df$speed,col=colnames[ic],type="b",cex=0.8,pch=ic+14)  }
   legtext <- c(legtext,paste(strsplit(istat,' ')[[1]][1],colnames[ic]))
   ic <- ic+1
 }
 legend("topright",legend=legtext,cex=0.6)
 #--------------------------------------------------------------
-legtext <- NULL
-ic <- 1
-for (istat in unique_names)
-{
-  df <- readRDS(paste0('OUTPUT/',istat,'.rds'))
-  idx <- which(df$POSIX >= as.POSIXct("2022-03-31 12:30:00",tz="UTC") & df$POSIX < as.POSIXct("2022-04-01 03:00:00",tz="UTC"))
-  df <- df[idx,]
-  idx <- order(df$POSIX)
-  df <- df[idx,]
-  if (ic == 1){   plot(df$POSIX,df$speed,type="b",pch=ic+14,cex=0.8,xlab="Dat/Time",ylab="speed [hm/hr]",col=colnames[ic],ylim=c(0,15),main="Starting March 31st 2022 at 12 noon UTC")     } 
-  else{   lines(df$POSIX,df$speed,col=colnames[ic],type="b",cex=0.8,pch=ic+14)  }
-  legtext <- c(legtext,paste(strsplit(istat,' ')[[1]][1],colnames[ic]))
-  ic <- ic+1
-  
-}
-legend("topright",legend=legtext,cex=0.6)
-#----------------------------------------
-# same t-axis
 ic <- 1
 legtext <- NULL
 for (istat in unique_names)
 {
   df <- readRDS(paste0('OUTPUT/',istat,'.rds'))
-  idx <- which(df$POSIX >= as.POSIXct("2022-04-01 12:00:00",tz="UTC") & df$POSIX < as.POSIXct("2022-04-02 01:00:00",tz="UTC"))
-  df <- df[idx,]
   idx <- order(df$POSIX)
   df <- df[idx,]
-  if (ic == 1){   plot(df$POSIX,df$speed,type="b",pch=ic+14,cex=0.8,xlab="Dat/Time",ylab="speed [hm/hr]",col=colnames[ic],ylim=c(0,12),main="Starting April 1st 2022 at 12 noon UTC")     } 
+  if (ic == 1){   plot(df$POSIX,df$speed, type="b", pch=ic+14,cex=0.8, xlab="Date/Time", ylab="speed [km/hr]", col=colnames[ic], ylim=c(0,6), main="48 hours Starting March 29th 2022 at 18 UTC", 
+                       xlim=c(as.POSIXct("2022-03-29 18:00:00",tz="UTC"), as.POSIXct("2022-03-31 18:00:00",tz="UTC")))     } 
   else{   lines(df$POSIX,df$speed,col=colnames[ic],type="b",cex=0.8,pch=ic+14)  }
   legtext <- c(legtext,paste(strsplit(istat,' ')[[1]][1],colnames[ic]))
   ic <- ic+1
-  
 }
 legend("topright",legend=legtext,cex=0.6)
 dev.off()
-```
 ```
 
 
@@ -181,37 +174,37 @@ alldf <- NULL
 #
 for (jstat in 1:length(unique_names))
 {
-print(jstat)
-statname <- unique_names[jstat]
-print(statname)
-
-
-other <- readRDS(paste0("OUTPUT/",statname,".rds"))
-
-tmin <- max(c(min(base_station$POSIX),min(other$POSIX)))
-tmax <- min(max(base_station$POSIX),max(other$POSIX))
-idx <- which(base_station$POSIX >= tmin & base_station$POSIX <= tmax)
-base_station <- base_station[idx,]
-idx <- which(other$POSIX >= tmin & other$POSIX <= tmax)
-other <- other[idx,]
-#Interpolate to same times as in 'base_station'
-common_t <- base_station$POSIX
-lon_other_interp <- approx(other$POSIX,other$lon,base_station$POSIX,na.rm=TRUE)$y
-lat_other_interp <- approx(other$POSIX,other$lat,base_station$POSIX,na.rm=TRUE)$y
-#
-interp_lon <- na.omit(cbind.data.frame(common_t,lon_other_interp))
-colnames(interp_lon) <- c("POSIX","lon_i")
-interp_lat <- na.omit(cbind.data.frame(common_t,lat_other_interp))
-colnames(interp_lat) <- c("POSIX","lat_i")
-together <- merge(base_station,interp_lon,by="POSIX")
-together <- merge(together,interp_lat,by="POSIX")
-delta_lon <- together$lon_i-together$lon
-delta_lat <- together$lat_i-together$lat
-together <- cbind(together,delta_lon,delta_lat)
-saveRDS(together,paste0("OUTPUT/processed_",statname,".rds"))
-print(paste(statname,round(sd(together$delta_lon),4),round(sd(together$delta_lat),4)))
-plot(together$delta_lon,together$delta_lat,main=statname,xlab="offset lon",ylab="offset lat",pch=19,cex=0.2,type="b")
-#
+  print(jstat)
+  statname <- unique_names[jstat]
+  print(statname)
+  
+  
+  other <- readRDS(paste0("OUTPUT/",statname,".rds"))
+  
+  tmin <- max(c(min(base_station$POSIX),min(other$POSIX)))
+  tmax <- min(max(base_station$POSIX),max(other$POSIX))
+  idx <- which(base_station$POSIX >= tmin & base_station$POSIX <= tmax)
+  base_station <- base_station[idx,]
+  idx <- which(other$POSIX >= tmin & other$POSIX <= tmax)
+  other <- other[idx,]
+  #Interpolate to same times as in 'base_station'
+  common_t <- base_station$POSIX
+  lon_other_interp <- approx(other$POSIX,other$lon,base_station$POSIX,na.rm=TRUE)$y
+  lat_other_interp <- approx(other$POSIX,other$lat,base_station$POSIX,na.rm=TRUE)$y
+  #
+  interp_lon <- na.omit(cbind.data.frame(common_t,lon_other_interp))
+  colnames(interp_lon) <- c("POSIX","lon_i")
+  interp_lat <- na.omit(cbind.data.frame(common_t,lat_other_interp))
+  colnames(interp_lat) <- c("POSIX","lat_i")
+  together <- merge(base_station,interp_lon,by="POSIX")
+  together <- merge(together,interp_lat,by="POSIX")
+  delta_lon <- together$lon_i-together$lon
+  delta_lat <- together$lat_i-together$lat
+  together <- cbind(together,delta_lon,delta_lat)
+  saveRDS(together,paste0("OUTPUT/processed_",statname,".rds"))
+  print(paste(statname,round(sd(together$delta_lon),4),round(sd(together$delta_lat),4)))
+  plot(together$delta_lon,together$delta_lat,main=statname,xlab="offset lon",ylab="offset lat",pch=19,cex=0.2,type="b")
+  #
 }
 ```
 
