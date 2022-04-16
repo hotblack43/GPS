@@ -90,7 +90,7 @@ for (istat in unique_names)
   plot(time,lon,main=istat,pch=19,cex=0.2,type="b")
   plot(time,lat,main=istat,pch=19,cex=0.2,type="b")
   if (length(temperature > 3)) {plot(time,temperature,main=istat,pch=19,cex=0.2,type="b")}
-  if (length(speed > 3)) {plot(time,speed,main=istat,pch=19,cex=0.2,type="b",ylim=c(0,50))}
+  if (length(speed > 3)) {plot(time,speed,main=istat,pch=19,cex=0.2,type="b",ylim=c(0.01,5),log="y")}
   if (length(acceleration > 3)) {
     plot(time,acceleration,main=istat,pch=19,cex=0.2,type="b")
     abline(h=1,col=2,lwd=3)
