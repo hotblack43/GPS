@@ -26,7 +26,7 @@ for (icol in 1:ncol(df))
 idx <- which(listen[,2] == nrow(df))
 df <- df[,-idx]
 df$POSIX <- as.POSIXct(df$"Timestamp UTC",tz="UTC")
-idx <- which(df$POSIX >= as.POSIXct("2022-03-29 23-00-00") & df$POSIX < as.POSIXct("2022-03-30 15-00-00"))
+idx <- which(df$POSIX >= as.POSIXct("2022-03-29 00-10-00",tz="UTC") & df$POSIX < as.POSIXct("2022-03-30 23-59-00",tz="UTC"))
 df <- df[idx,]
 df_org <- df
 #
@@ -69,6 +69,7 @@ for (istat in c("Mallemuk 300434066431710", "Ismaage 300434066437720","Havterne 
   lon <- df2$Longitude
   lat <- df2$Latitude
   time <- df2$POSIX
+  print(c(istat,min(df2$POSIX),max(time)))
   
   plot(lon,lat,main=istat,pch=19,cex=0.2,type="p")
   plot(time,lon,main=istat,pch=19,cex=0.2,type="b")
