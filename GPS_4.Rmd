@@ -16,7 +16,7 @@ library(dplyr)
 library(lubridate)
 setwd("~/WORKSHOP/GPS/")
 
-df <- readRDS("OUTPUT/EVERYTHING3.rds")
+df <- readRDS("OUTPUT/EVERYTHING4.rds")
 # clean out columns with only NA
 listen <- NULL
 for (icol in 1:ncol(df))

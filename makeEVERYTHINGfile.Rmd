@@ -1,0 +1,26 @@
+---
+title: "Builds one large file with all unqiue data in"
+output: 
+  pdf_document: 
+    fig_height: 9
+    fig_caption: yes
+---
+
+
+```{r, message=FALSE}
+rm(list=ls())
+library(readxl)
+library(dplyr)
+library(lubridate)
+setwd("~/WORKSHOP/GPS/")
+
+ df <- read_excel("DATA/AdvancedExport_2022-04-13 16_40_31Z.xlsx")
+df2 <- read_excel("DATA/AdvancedExport_2022-04-15 16_01_03Z.xlsx")
+df3 <- read_excel("DATA/AdvancedExport_2022-04-17 09_51_50Z.xlsx")
+#
+# rbind
+df <- rbind.data.frame(df,df2)
+df <- rbind.data.frame(df,df3)
+df <- unique(df)
+saveRDS(df,"OUTPUT/EVERYTHING4.rds")
+```
