@@ -29,6 +29,7 @@ df_org <- df
 unique_names <- unique(df$UnitName)
 unique_names
 
+if_remove_dogsled <- FALSE
 ```
 
 # Define that function for later use
@@ -62,6 +63,13 @@ jdx <- which(z > 7)
 df_here$Longitude[jdx] <- NA
 print(paste("I removed in Fjeldrype ",length(jdx)," outliers in longitude"))
 plot(df_here$POSIX,df_here$Longitude,type="b",main="Fjeldrype after outlier removed")
+dlon <- sd(df_here$Longitude,na.rm=TRUE)
+dtor <- pi/180
+dx_lon <- dlon/360*2*pi*cos(mean(df_here$Latitude)*dtor)*6371*1000
+print(paste0("SD of longitude for stationary Fjeldrype : ",round(dlon,6)," degrees lon, or ",round(dx_lon,1)," m."))
+dlat <- sd(df_here$Latitude,na.rm=TRUE)
+dx_lat <- dlat*2*pi*6371*1000/360
+print(paste("SD of latitude for stationary Fjeldrype : ",round(dlat,6)," degrees lat, or ",round(dx_lat,1)," m."))
 # rbind the new
 df_org <- rbind.data.frame(df_org,df_here)
 df <- df_org
@@ -203,7 +211,9 @@ for (istat in unique_names)
   plot(time,lon,main=istat,pch=19,cex=0.2,type="b")
   plot(time,lat,main=istat,pch=19,cex=0.2,type="b")
   if (length(temperature > 3)) {plot(time,temperature,main=istat,pch=19,cex=0.2,type="b")}
-  if (length(speed > 3)) {plot(time,speed,main=istat,pch=19,cex=0.2,type="b",ylim=c(0.01,5),log="y")}
+  if (length(speed  > 3)) {plot(time,speed,main=istat,pch=19,cex=0.2,type="b",ylim=c(0.01,5),log="y")}
+  if (length(speed0 > 3)) {plot(time,speed0,main=istat,pch=19,cex=0.2,type="b",ylim=c(0.01,5),log="y")}
+  if (length(speed0 > 3) & length(speed0) > 3) {plot(speed,speed0,main=istat,pch=19,cex=0.2,type="p",asp=1)}
   if (length(acceleration > 3)) {
     plot(time,acceleration,main=istat,pch=19,cex=0.2,type="b")
     abline(h=1,col=2,lwd=3)
@@ -217,6 +227,7 @@ for (istat in unique_names)
   if (length(acceleration) == nrow(df3)){    df3 <- cbind.data.frame(df3,acceleration)  }
   if (length(lightlevel) == nrow(df3)){    df3 <- cbind.data.frame(df3,lightlevel)  }
   if (length(speed) == nrow(df3)){    df3 <- cbind.data.frame(df3,speed)  }
+  if (length(speed0) == nrow(df3)){    df3 <- cbind.data.frame(df3,speed0)  }
   saveRDS(df3,paste0('OUTPUT/',istat,'.rds'))
   #
   
@@ -227,7 +238,7 @@ for (istat in unique_names)
 
 # Remove dogsled series
 ```{r}
-if_remove_dogsled <- TRUE
+
 if (if_remove_dogsled){
   unique_names
   idx <- which(unique_names == "Landsvale 860640050251737")
@@ -267,7 +278,7 @@ dev.off()
 ```
 
 
-# relative to Fjeldrype
+# positions relative to Fjeldrype
 ```{r,message=FALSE}
 par(mfrow=c(1,1))
 
@@ -314,5 +325,57 @@ for (jstat in 1:length(unique_names))
 }
 ```
 
+# lon/lat relative to Fjeldrype vs time
+```{r,message=FALSE}
 
+
+base_station <- readRDS("OUTPUT/Fjeldrype 860640050232018.rds")
+
+alldf <- NULL
+#
+for (jstat in 1:length(unique_names))
+{
+  
+  #print(jstat)
+  statname <- unique_names[jstat]
+  #print(statname)
+  png(paste0("FIGURES/offset_lon_lat_rel_Fjeldrype_vs_time_",statname,".png"))
+  par(mfrow=c(2,1))
+  other <- readRDS(paste0("OUTPUT/",statname,".rds"))
+  
+  tmin <- max(c(min(base_station$POSIX),min(other$POSIX)))
+  tmax <- min(max(base_station$POSIX),max(other$POSIX))
+  idx <- which(base_station$POSIX >= tmin & base_station$POSIX <= tmax)
+  base_station <- base_station[idx,]
+  idx <- which(other$POSIX >= tmin & other$POSIX <= tmax)
+  other <- other[idx,]
+  #Interpolate to same times as in 'base_station'
+  common_t <- base_station$POSIX
+  lon_other_interp <- approx(other$POSIX,other$lon,base_station$POSIX,na.rm=TRUE)$y
+  lat_other_interp <- approx(other$POSIX,other$lat,base_station$POSIX,na.rm=TRUE)$y
+  #
+  interp_lon <- na.omit(cbind.data.frame(common_t,lon_other_interp))
+  colnames(interp_lon) <- c("POSIX","lon_i")
+  interp_lat <- na.omit(cbind.data.frame(common_t,lat_other_interp))
+  colnames(interp_lat) <- c("POSIX","lat_i")
+  together <- merge(base_station,interp_lon,by="POSIX")
+  together <- merge(together,interp_lat,by="POSIX")
+  delta_lon <- together$lon_i-together$lon
+  delta_lat <- together$lat_i-together$lat
+  together <- cbind(together,delta_lon,delta_lat)
+  saveRDS(together,paste0("OUTPUT/processed_",statname,".rds"))
+  print(paste(statname,round(sd(together$delta_lon),4),round(sd(together$delta_lat),4)))
+  plot(together$POSIX,together$delta_lat,main=statname,xlab="Time [UTC]",ylab="rel. lat",pch=19,cex=0.2,type="p")
+  grid (NULL,NULL, lty = 6, col = "grey")
+  plot(together$POSIX,together$delta_lon,main=statname,xlab="Time [UTC]",ylab="rel. lon",pch=19,cex=0.2,type="p")
+  grid (NULL,NULL, lty = 6, col = "grey")
+  #
+  dev.off()
+  par(mfrow=c(2,1))
+  plot(together$POSIX,together$delta_lat,main=statname,xlab="Time [UTC]",ylab="rel. lat",pch=19,cex=0.2,type="p")
+  grid (NULL,NULL, lty = 6, col = "grey")
+  plot(together$POSIX,together$delta_lon,main=statname,xlab="Time [UTC]",ylab="rel. lon",pch=19,cex=0.2,type="p")
+  grid (NULL,NULL, lty = 6, col = "grey")
+}
+```
 
