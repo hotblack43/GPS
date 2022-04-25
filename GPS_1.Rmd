@@ -8,7 +8,7 @@ output:
 
  
 
-```{r, message=FALSE}
+```{r}
 rm(list=ls())
 library(dplyr)
 library(lubridate)
@@ -32,14 +32,13 @@ unique_names
 statdat <- NULL
 for (istat in unique_names)
 {
-  idx <- which(df$UnitName == istat & df$Longitude < -65)
+  idx <- which(df$UnitName == istat)
   df2 <- df[idx,] %>% select(where(not_all_na))  
   cnams <- colnames(df2)
   #
   if (which(cnams == "Longitude") !=0){
   lon <- df2$Longitude
   lat <- df2$Latitude
-  plot(lon,lat,main=istat)
   }
   
   
