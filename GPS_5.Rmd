@@ -76,7 +76,7 @@ for (istat in unique_names)
   time <- as.POSIXct(df2$Timestamp.UTC,tz="UTC")
   #df2 <- na.omit(df2)
   time <- as.POSIXct(df2$Timestamp.UTC,tz="UTC")
-  #
+  # 
   lon <- df2$Longitude
   lat <- df2$Latitude
   temperature <- df2$Temperature..C.
