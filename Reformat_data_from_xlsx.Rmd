@@ -1,0 +1,43 @@
+---
+title: "Reformat xlsx data"
+output: 
+  pdf_document: 
+    fig_height: 6
+---
+
+Reads .xlsx files
+Outputs .rds files for columns not all NA
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/GPS/")
+library(readxl)
+
+```
+
+# Fix a file  
+```{r}
+fixfile <- function(inpath,filename,outpath,birdname)
+{
+  df <- read_excel(paste0(inpath,filename))
+  df$POSIX <- as.POSIXct(df$`Timestamp UTC`,tz='UTC')
+  idx <- which(df$POSIX >= as.POSIXct("2022-03-31 00:00:00",tz="UTC"))
+  df <- df[idx,]
+  df <- df[,colSums(is.na(df)) < nrow(df)]
+  saveRDS(df,paste0(outpath,birdname,'.rds'))
+  colnames(df)
+  # add 
+}
+```
+
+# Each file fix
+```{r}
+fixfile('DATA/','Mallemuk2022-05-20 10_47_09Z.xlsx','OUTPUT/','Mallemuk')
+fixfile('DATA/','SoekongeReports_300434066433690_2022-05-20 10_16_37Z.xlsx','OUTPUT/','Soekonge')
+fixfile('DATA/','IsmaageReports_300434066437720_2022-05-20 10_16_11Z.xlsx','OUTPUT/','Ismaage')
+fixfile('DATA/','HavterneReports_300434066435700_2022-05-20 10_15_49Z.xlsx','OUTPUT/','Havterne')
+fixfile('DATA/','HavoernReports_300434066437680_2022-05-20 10_15_22Z.xlsx','OUTPUT/','Havoern')
+fixfile('DATA/','EdderReports_300434066433700_2022-05-20 10_21_59Z.xlsx','OUTPUT/','Edder')
+```
+
+

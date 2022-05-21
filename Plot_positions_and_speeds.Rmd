@@ -1,0 +1,123 @@
+---
+title: "Plot positions and speeds"
+output: 
+  pdf_document: 
+    fig_height: 9
+---
+
+Reads .xlsx files
+Outputs .rds files for columns not all NA
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/GPS/")
+library(dplyr)
+library(lubridate)
+
+
+```
+
+## Utility GC formula
+```{r}
+
+# Calculates the geodesic distance between two points specified by radian latitude/longitude using the
+# Haversine formula (hf)
+gcd.hf <- function(long1, lat1, long2, lat2) {
+  R <- 6371*1000 # Earth mean radius [m]
+  delta.long <- (long2 - long1)
+  delta.lat <- (lat2 - lat1)
+  a <- sin(delta.lat/2)^2 + cos(lat1) * cos(lat2) * sin(delta.long/2)^2
+  c <- 2 * asin(min(1,sqrt(a)))
+  d = R * c
+  return(d) # Distance in m
+}
+
+```
+
+# Define function to calculate speed
+```{r}
+getSpeed <- function(time,lon,lat)
+{
+  rtod <- pi/180
+  speed <- NULL
+  for (it in 1:(length(time)-1))
+  {
+    # calc great-circle distance between pairs of points
+    distance <- gcd.hf(rtod*lon[it+1],rtod*lat[it+1],rtod*lon[it],rtod*lat[it])
+    delta_time <- as.numeric(time[it+1]-time[it])/60 # dt in hours now
+    #browser()
+    # calc speed
+    speed <- c(speed,abs(distance/delta_time))
+  }
+  return(list("speed"=speed))
+}
+```
+
+# Plot coloured points
+```{r}
+plotcolouredpoints <- function(x,y,limitdates,pair)
+{
+  idx <- which(df$POSIX >= limitdates[(pair-1)*2+1] & df$POSIX < limitdates[(pair-1)*2+2])
+  points(x[idx],y[idx],type="p",cex=0.3,col=1+pair)
+}
+```
+
+
+
+# plot positions and speeds etc
+```{r}
+plot_stuff <- function(df,name,limitdates)
+{
+  par(mfrow=c(4,1))
+  nlimits <- length(limitdates)
+  statname <- strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
+  # First plot positions
+  plot(df$Longitude,df$Latitude,type="p",cex=0.3,xlab="lon",ylab="lat",main=statname)
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,1)
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,2)
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,3)
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,4)
+  # Plot lon vs time
+  plot(df$POSIX,df$Longitude,type="p",cex=0.3,xlab="Date/Time",ylab="lon",main=statname)
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,1)
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,2)
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,3)
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,4)
+  # Plot lat vs time
+  plot(df$POSIX,df$Latitude,type="p",cex=0.3,xlab="Date/Time",ylab="lat",main=statname)
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,1)
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,2)
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,3)
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,4)
+  # get speed
+  speed <- getSpeed(df$POSIX,df$Longitude,df$Latitude)$speed
+  df$speed <- c(speed[1],speed)
+  # plot speed against time
+  plot(df$POSIX,df$speed,type="p",cex=0.3,xlab="Date/Time",ylab="speed [m/hr]",main=statname)
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,1)
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,2)
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,3)
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,4)
+}
+```
+
+
+# rad and plot each file
+```{r,fig.width=6,fig.height=9}
+files <- c('OUTPUT/Mallemuk.rds','OUTPUT/Soekonge.rds','OUTPUT/Ismaage.rds','OUTPUT/Havterne.rds','OUTPUT/Havoern.rds','OUTPUT/Edder.rds')
+#files <- files[1]
+limitdates <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-7 00:00:00",tz="UTC"),
+                as.POSIXct("2022-04-7 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 12:00:00",tz="UTC"),
+                as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
+                as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-04 00:00:00",tz="UTC")) 
+
+for (ifil in 1:length(files))
+{
+  print(paste(" Processing file ",files[ifil]))
+  df <- readRDS(files[ifil])
+  plot_stuff(df,files[ifil],limitdates)
+}
+
+```
+
+

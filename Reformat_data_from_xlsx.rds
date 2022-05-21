@@ -1,0 +1,14 @@
+---
+title: "Reformat xlsx data"
+output: html_notebook
+---
+
+ 
+```{r}
+rm(list=ls()
+setwd("~/WORKSHOP/GPS/")
+library(readxl)
+
+Mallemuk2022_05_20_10_47_09Z <- read_excel("DATA/Mallemuk2022-05-20 10_47_09Z.xlsx")
+```
+ 
