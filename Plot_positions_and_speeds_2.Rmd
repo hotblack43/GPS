@@ -5,6 +5,9 @@ output:
     fig_height: 9
 ---
 
+
+Version 2: calculates mean speeds - whcih is pointless since the motions is not steady, nut episodic
+
 Reads .xlsx files
 Outputs .rds files for columns not all NA
 
@@ -40,6 +43,7 @@ getSpeed <- function(time,lon,lat)
 {
   rtod <- pi/180
   speed <- NULL
+  speed_smoo <- NULL
   for (it in 1:(length(time)-1))
   {
     # calc great-circle distance between pairs of points
@@ -49,16 +53,25 @@ getSpeed <- function(time,lon,lat)
     # calc speed
     speed <- c(speed,abs(distance/delta_time))
   }
-  return(list("speed"=speed))
+  speed_smoo <- NULL
+  for (j in 1:(length(speed)-1))
+  {
+    speed_smoo <- rbind(speed_smoo,c(j,median(c(speed[j-2],speed[j-1],speed[j],speed[j+1],speed[j+1]),na.rm=TRUE)))
+  }
+  speed_smoo <- rbind(speed_smoo[1,],speed_smoo,speed_smoo[nrow(speed_smoo),])
+  #browser()
+  return(list("speed"=speed,"speed_smoo"=speed_smoo))
 }
 ```
 
 # Plot coloured points
 ```{r}
-plotcolouredpoints <- function(x,y,limitdates,pair)
+plotcolouredpoints <- function(x,y,limitdates,pair,ivar)
 {
   idx <- which(df$POSIX >= limitdates[(pair-1)*2+1] & df$POSIX < limitdates[(pair-1)*2+2])
   points(x[idx],y[idx],type="p",cex=0.3,col=1+pair)
+  if (ivar == 'speed') {print(paste(pair,' from ',limitdates[(pair-1)*2+1],' to ', limitdates[(pair-1)*2+2],' speed: ',round(median(y[idx],na.rm=T),1),' +/- ',round(sd(y[idx],na.rm=T)/sqrt(length(idx)),1), 'm/hr'))}
+ 
 }
 ```
 
@@ -73,32 +86,37 @@ plot_stuff <- function(df,name,limitdates)
   statname <- strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
   # First plot positions
   plot(df$Longitude,df$Latitude,type="p",cex=0.3,xlab="lon",ylab="lat",main=statname)
-  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,1)
-  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,2)
-  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,3)
-  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,4)
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,1,'')
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,2,'')
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,3,'')
+  plotcolouredpoints(df$Longitude,df$Latitude,limitdates,4,'')
   # Plot lon vs time
   plot(df$POSIX,df$Longitude,type="p",cex=0.3,xlab="Date/Time",ylab="lon",main=statname)
-  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,1)
-  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,2)
-  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,3)
-  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,4)
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,1,'')
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,2,'')
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,3,'')
+  plotcolouredpoints(df$POSIX,df$Longitude,limitdates,4,'')
   # Plot lat vs time
   plot(df$POSIX,df$Latitude,type="p",cex=0.3,xlab="Date/Time",ylab="lat",main=statname)
-  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,1)
-  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,2)
-  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,3)
-  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,4)
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,1,'')
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,2,'')
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,3,'')
+  plotcolouredpoints(df$POSIX,df$Latitude,limitdates,4,'')
   # get speed
-  speed <- getSpeed(df$POSIX,df$Longitude,df$Latitude)$speed
+  out <- getSpeed(df$POSIX,df$Longitude,df$Latitude)
+  speed <- out$speed
+  speed_smoo <- out$speed_smoo[,2]
   df$speed <- c(speed[1],speed)
+  df$speed_smoo <- speed_smoo
+  #browser()
   # plot speed against time
   plot(df$POSIX,df$speed,type="p",cex=0.3,xlab="Date/Time",ylab="speed [m/hr]",main=statname)
-  plotcolouredpoints(df$POSIX,df$speed,limitdates,1)
-  plotcolouredpoints(df$POSIX,df$speed,limitdates,2)
-  plotcolouredpoints(df$POSIX,df$speed,limitdates,3)
-  plotcolouredpoints(df$POSIX,df$speed,limitdates,4)
-}
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,1,'speed')
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,2,'speed')
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,3,'speed')
+  plotcolouredpoints(df$POSIX,df$speed,limitdates,4,'speed')
+  #lines(df$POSIX,df$speed_smoo)
+  }
 ```
 
 
