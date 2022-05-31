@@ -6,7 +6,7 @@ output:
 ---
 
 
-Version 3: calculates speed at the sudden changes in location.
+Version 3: calculates speed at the sudden changes in location. This is just an EXAMPLE code acting only on Latitude. Later versions will set up Longitud ealso as well as the actual ground speed.
 
 Reads .xlsx files
 Outputs .rds files for columns not all NA
@@ -18,6 +18,7 @@ library(dplyr)
 library(lubridate)
 library(MASS)
 
+Rearth <- 6371*1e3 # meters
 
 ```
 
@@ -122,64 +123,133 @@ plot_stuff <- function(df,name,limitdates)
 
 # model positions and calculate speeds at jumps
 ```{r}
-get_jump_speeds_by_postion_modelling <- function(df,name,limitdates)
+model_motion <- function(df,name,limitdates)
 {
   
-  par(mfrow=c(4,1))
+  par(mfrow=c(3,1))
   nlimits <- length(limitdates)
   statname <- strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
-  pred_at_interval_left_right <- NULL
+  # Latitude
+  latitude_pred_at_interval_left_right <- NULL
+  lat_speed <- NULL
   # loop over limidates and model positions before and after each limitdate
   for (ilimit in seq(from=1,to=(nlimits-1),by=2))
   {
     idx <- which(df$POSIX >= limitdates[ilimit] & df$POSIX < limitdates[ilimit+1] & !is.na(df$Latitude) )
     rlmfit <- rlm(df$Latitude[idx] ~ df$POSIX[idx])
-    print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
+    lat_speed <- rbind.data.frame(lat_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+    #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
     if (ilimit == 1) {
       #browser()
-      plot(df$POSIX[idx],df$Latitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T))
+      plot(df$POSIX[idx],df$Latitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
       lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
       # evaluate diff at jump
-      pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+      latitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
     }
     if (ilimit  > 1) {
       points(df$POSIX[idx],df$Latitude[idx])
       lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
       #
-      pred_at_interval_left_right  <- rbind.data.frame(pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+      latitude_pred_at_interval_left_right  <- rbind.data.frame(latitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
       
     }
     
   }
-  # cal cthe actuall offsets
-  listen <- NULL
-  for (i in 2:nrow(pred_at_interval_left_right))
+  colnames(lat_speed) <- c("segment_number","lat_speed_radperhr")
+  # Longitude
+  longitude_pred_at_interval_left_right <- NULL
+  lon_speed <- NULL
+  # loop over limidates and model positions before and after each limitdate
+  for (ilimit in seq(from=1,to=(nlimits-1),by=2))
   {
-    listen <- rbind(listen,c(i,pred_at_interval_left_right[i,2]-pred_at_interval_left_right[i-1,1]))
+    idx <- which(df$POSIX >= limitdates[ilimit] & df$POSIX < limitdates[ilimit+1] & !is.na(df$Longitude) )
+    rlmfit <- rlm(df$Longitude[idx] ~ df$POSIX[idx])
+    lon_speed <- rbind.data.frame(lon_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+    #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
+    if (ilimit == 1) {
+      #browser()
+      plot(df$POSIX[idx],df$Longitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
+      lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+      # evaluate diff at jump
+      longitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+    }
+    if (ilimit  > 1) {
+      points(df$POSIX[idx],df$Longitude[idx])
+      lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+      #
+      longitude_pred_at_interval_left_right  <- rbind.data.frame(longitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+      
+    }
+    
   }
-  browser()
-  return(pred_at_interval_left_right)
+  colnames(lon_speed) <- c("segment_number","lon_speed_radperhr")
+  segment_speed <- Rearth*sqrt((lon_speed[,2]*cos(median(df$Latitude,na.rm=T)/180*pi))^2+(lat_speed[,2])^2) # meters per hour
+  #browser()
+  return(list("lats"=latitude_pred_at_interval_left_right,"longs"=longitude_pred_at_interval_left_right,"segspeed"=segment_speed))
 }
 ```
+
+# fucntion to get interval and jump speeds
+```{r}
+get_jump_speeds <- function(listerne,lon_in,lat_in)
+{
+  lon <- lon_in/180*pi # in radians
+  lat <- lat_in/180*pi
+  delta_t <- 3 # hours
+  
+  # calculate jump speeds
+  n_segments <- nrow(listerne$lats)
+  speed <- NULL
+  for (iseg in 1:(n_segments-1))
+  {
+    delta_longitude <- listerne$longs[iseg+1,1]-listerne$longs[iseg,2] # in degrees
+    delta_longitude <- delta_longitude/180*pi # in radians
+    delta_latitude  <- listerne$lats[iseg+1,1]-listerne$lats[iseg,2] # in degrees
+    delta_latitude <- delta_latitude/180*pi # in radians
+    speed <- rbind.data.frame(speed,c(iseg,Rearth/delta_t*sqrt(delta_longitude^2*cos(lat)^2+delta_latitude^2))) # in meters/hr
+  }
+  colnames(speed) <- c("jump_number","speed_metersph")
+  return(list("speed_jump"=speed))
+}
+```
+
 
 # read and plot each file
 ```{r,fig.width=6,fig.height=9}
 files <- c('OUTPUT/Mallemuk.rds','OUTPUT/Soekonge.rds','OUTPUT/Ismaage.rds','OUTPUT/Havterne.rds','OUTPUT/Havoern.rds','OUTPUT/Edder.rds')
 #files <- files[1]
-limitdates <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-7 00:00:00",tz="UTC"),
-                as.POSIXct("2022-04-7 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 12:00:00",tz="UTC"),
-                as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
-                as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-04 00:00:00",tz="UTC"),
-                as.POSIXct("2022-05-04 17:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:00",tz="UTC")) 
+# list the important times - start, jumps, ending:
+important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-7 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-04 00:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:00",tz="UTC"))
+limitdates <- NULL
+for (it in 1:(length(important_times)-1))
+{
+  limitdates <- c(limitdates,c(important_times[it],important_times[it+1]))
+}
 
+#limitdates2 <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-7 00:00:00",tz="UTC"),
+#                as.POSIXct("2022-04-7 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 12:00:00",tz="UTC"),
+#                as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
+#                as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-04 00:00:00",tz="UTC"),
+#                as.POSIXct("2022-05-04 17:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:00",tz="UTC")) 
+#browser()
 for (ifil in 1:length(files))
 {
+  print("------------------------------------------")
   print(paste(" Processing file ",files[ifil]))
   df <- readRDS(files[ifil])
   plot_stuff(df,files[ifil],limitdates)
-  get_jump_speeds_by_postion_modelling(df,files[ifil],limitdates)
+  # more better way
+  listerne <- model_motion(df,files[ifil],limitdates)
+  segspeeds <- round(listerne$segspeed,2)
+  print(segspeeds)
+  # get speeds of various kinds from the list of jumps
+  speeds <- get_jump_speeds(listerne,lon=median(df$Longitude,na.rm=T),lat=median(df$Latitude,na.rm=T))
+  print(speeds)
+  
 }
-
+print("------------------------------------------")
 ```
 
 
