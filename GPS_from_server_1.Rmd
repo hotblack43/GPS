@@ -5,20 +5,22 @@ output:
     fig_height: 6
 ---
 
-  
+Read Ruth's GPS data via the API
 
 ```{r}
 rm(list=ls())
 library("jsonlite")
 library(anytime)
-GPS1 <- jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=oGpy6z41mAOjI35p&id=88462&skip=0&count=100')
+GPS1 <- jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=oGpy6z41mAOjI35p&id=88462&skip=0&count=10000')
 
 ```
 
 ```{r}
-lon <- GPS1$Longitude
-lat <- GPS1$Latitude
-UTC <- anytime(GPS1$UnixTimestampUtc/1000)
+df <- NULL
+df$lon <- as.numeric(GPS1$Longitude)
+df$lat <- as.numeric(GPS1$Latitude)
+df$UTC <- anytime(GPS1$UnixTimestampUtc/1000)
+df <- as.data.frame(df)
 ```
 
 
