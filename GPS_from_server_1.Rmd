@@ -54,7 +54,7 @@ df <- merge(df,returnlonlatUTC(Søkonge),by=c("Year","Month","Day","Hour","Minut
 df2 <- rbind.data.frame(df2,returnlonlatUTC(Søkonge))
 df <- merge(df,returnlonlatUTC(Edder),by=c("Year","Month","Day","Hour","Minute"),all=T)
 df2 <- rbind.data.frame(df2,returnlonlatUTC(Edder))
-nams <- colnames(df)
+nams <- colnames(df) 
 idx <- grep('UTC',nams)
 df <- df[,-idx] # drop the UTC columns
 ```
