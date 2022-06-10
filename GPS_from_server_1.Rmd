@@ -11,17 +11,52 @@ Read Ruth's GPS data via the API
 rm(list=ls())
 library("jsonlite")
 library(anytime)
-GPS1 <- jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=oGpy6z41mAOjI35p&id=88462&skip=0&count=10000')
+library(lubridate)
 
+Havørn <-   jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=hmM3Tkj7Hqzd9bx1&id=88463&skip=0&count=10000')
+Havterne <- jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=hHMt6mnY6lP559N5&id=88465&skip=0&count=10000')
+Ismåge <-   jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=AHvGej6oO38Tf2Uf&id=88464&skip=0&count=10000')
+Mallemuk <- jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=oGpy6z41mAOjI35p&id=88462&skip=0&count=10000')
+Søkonge <-  jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=Qv6y9qee7SyOMTYZ&id=88319&skip=0&count=10000')
+Edder <-    jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=3U2RFGwXk74cDtTe&id=88617&skip=0&count=10000')
 ```
 
+# f
 ```{r}
-df <- NULL
-df$lon <- as.numeric(GPS1$Longitude)
-df$lat <- as.numeric(GPS1$Latitude)
-df$UTC <- anytime(GPS1$UnixTimestampUtc/1000)
-df <- as.data.frame(df)
+returnlonlatUTC <- function(frame)
+{
+  df  <- NULL
+  df$lon <- as.numeric(frame$Longitude)
+  df$lat <- as.numeric(frame$Latitude)
+  df$UTC <- anytime(frame$UnixTimestampUtc/1000)
+  df$Year <- year(df$UTC)
+  df$Month <- month(df$UTC)
+  df$Day <- day(df$UTC)
+  df$Hour <- hour(df$UTC)
+  df$Minute <- minute(df$UTC)
+  df$UnitID <- frame$UnitId
+  df <- as.data.frame(df)
+  return(df)
+}
+```
+
+# Merge into one frame 
+```{r}
+df <- returnlonlatUTC(Havørn)
+df2 <- df
+df <- merge(df,returnlonlatUTC(Havterne),by=c("Year","Month","Day","Hour","Minute"),all=T)
+df2 <- rbind.data.frame(df2,returnlonlatUTC(Havterne))
+df <- merge(df,returnlonlatUTC(Ismåge),by=c("Year","Month","Day","Hour","Minute"),all=T)
+df2 <- rbind.data.frame(df2,returnlonlatUTC(Ismåge))
+df <- merge(df,returnlonlatUTC(Mallemuk),by=c("Year","Month","Day","Hour","Minute"),all=T)
+df2 <- rbind.data.frame(df2,returnlonlatUTC(Mallemuk))
+df <- merge(df,returnlonlatUTC(Søkonge),by=c("Year","Month","Day","Hour","Minute"),all=T)
+df2 <- rbind.data.frame(df2,returnlonlatUTC(Søkonge))
+df <- merge(df,returnlonlatUTC(Edder),by=c("Year","Month","Day","Hour","Minute"),all=T)
+df2 <- rbind.data.frame(df2,returnlonlatUTC(Edder))
+nams <- colnames(df)
+idx <- grep('UTC',nams)
+df <- df[,-idx] # drop the UTC columns
 ```
 
 
- 
