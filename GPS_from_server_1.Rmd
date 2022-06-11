@@ -57,6 +57,7 @@ df2 <- rbind.data.frame(df2,returnlonlatUTC(Edder))
 nams <- colnames(df) 
 idx <- grep('UTC',nams)
 df <- df[,-idx] # drop the UTC columns
+saveRDS(df2,"OUTPUT/updated_file_of_GPS_observations.rds")
 ```
 
 

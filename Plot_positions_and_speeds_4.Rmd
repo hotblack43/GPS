@@ -1,0 +1,217 @@
+---
+title: "Plot positions and speeds"
+output: 
+  pdf_document: 
+    fig_height: 9
+---
+
+DOES NOT WORK YET model_speed comes up with idx empty
+
+Version 4: plots from GPS data previously fetched from server with code "xxx.Rmd"
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/GPS/")
+library(dplyr)
+library(anytime)
+library(lubridate)
+library(MASS)
+
+Rearth <- 6371*1e3 # meters
+
+# read data stored previously by code "GPS_from_server_1.Rmd"
+data <- readRDS("OUTPUT/updated_file_of_GPS_observations.rds")
+idx <- which(data$Month < 4)
+data <- data[-idx,] # skip all data before March 31st
+unitIDs <- unique(data$UnitID)
+idx <- which(unitIDs == 88462)
+unitIDs <- unitIDs[-idx]
+```
+
+## Utility GC formula
+```{r}
+
+# Calculates the geodesic distance between two points specified by radian lat/lon using the
+# Haversine formula (hf)
+gcd.hf <- function(long1, lat1, long2, lat2) {
+  R <- 6371*1000 # Earth mean radius [m]
+  delta.long <- (long2 - long1)
+  delta.lat <- (lat2 - lat1)
+  a <- sin(delta.lat/2)^2 + cos(lat1) * cos(lat2) * sin(delta.long/2)^2
+  c <- 2 * asin(min(1,sqrt(a)))
+  d = R * c
+  return(d) # Distance in m
+}
+
+```
+
+# Define function to calculate speed
+```{r}
+getSpeed <- function(time,lon,lat)
+{
+  rtod <- pi/180
+  speed <- NULL
+  speed_smoo <- NULL
+  for (it in 1:(length(time)-1))
+  {
+    # calc great-circle distance between pairs of points
+    distance <- gcd.hf(rtod*lon[it+1],rtod*lat[it+1],rtod*lon[it],rtod*lat[it])
+    delta_time <- as.numeric(time[it+1]-time[it])/60 # dt in hours now
+    #browser()
+    # calc speed
+    speed <- c(speed,abs(distance/delta_time))
+  }
+  speed_smoo <- NULL
+  for (j in 1:(length(speed)-1))
+  {
+    speed_smoo <- rbind(speed_smoo,c(j,median(c(speed[j-2],speed[j-1],speed[j],speed[j+1],speed[j+1]),na.rm=TRUE)))
+  }
+  speed_smoo <- rbind(speed_smoo[1,],speed_smoo,speed_smoo[nrow(speed_smoo),])
+  #browser()
+  return(list("speed"=speed,"speed_smoo"=speed_smoo))
+}
+```
+
+# Plot coloured points
+```{r}
+plotcolouredpoints <- function(x,y,limitdates,ipair,ivar)
+{
+   
+  idx <- which(df$UTC >= limitdates[ipair,1] & df$UTC < limitdates[ipair,2])
+  points(x[idx],y[idx],type="p",cex=0.3,col=1+ipair)
+}
+```
+
+
+
+# plot positions and speeds etc
+```{r}
+plot_stuff <- function(df,name,limitdates)
+{
+  par(mfrow=c(3,1))
+  npairs <- nrow(limitdates)
+  statname <- name
+  # First plot positions
+  plot(df$lon,df$lat,type="p",cex=0.3,xlab="lon",ylab="lat",main=statname)
+  for (ipair in 1:npairs){  plotcolouredpoints(df$lon,df$lat,limitdates,ipair,'')  }
+  # Plot lon vs time
+  plot(df$UTC,df$lon,type="p",cex=0.3,xlab="Date/Time",ylab="lon",main=statname)
+  for (ipair in 1:npairs){  plotcolouredpoints(df$UTC,df$lon,limitdates,ipair,'')  }
+  # Plot lat vs time
+  plot(df$UTC,df$lat,type="p",cex=0.3,xlab="Date/Time",ylab="lat",main=statname)
+  for (ipair in 1:npairs){  plotcolouredpoints(df$UTC,df$lat,limitdates,ipair,'')  }
+}
+```
+
+# model positions and calculate speeds at jumps
+```{r}
+model_motion <- function(df,statname,limitdates)
+{
+  nsegments <- nrow(limitdates)
+  lat_speed <- NULL
+  lon_speed <- NULL
+  # loop over limitdates and model positions before and after each limitdate
+  for (isegment in 1:(nsegments-1))
+  {
+    
+    # lat
+    # first segment
+    idx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
+
+    rlmfit1 <- rlm(df$lat[idx] ~ df$UTC[idx])
+    lat_speed1 <- summary(rlmfit1)$coefficients[2]*3600/180*pi # radians per hour
+    # second segment
+    idx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
+        print(c(anytime(limitdates[isegment,1]),anytime(limitdates[isegment,2])))
+    print(length(idx))
+    rlmfit2 <- rlm(df$lat[idx] ~ df$UTC[idx])
+    lat_speed2 <- summary(rlmfit2)$coefficients[2]*3600/180*pi # radians per hour
+    # speed during jump between segments
+    lat_jump <- first(rlmfit2$fitted.values)-last(rlmfit1$fitted.values)
+    lat_speed <- rbind(lat_speed,c(isegment,lat_speed1,lat_jump))
+    # lon
+    # first segment
+    idx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
+    rlmfit1 <- rlm(df$lon[idx] ~ df$UTC[idx])
+    lon_speed1 <- summary(rlmfit1)$coefficients[2]*3600/180*pi # radians per hour
+    # second segment
+    idx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
+    rlmfit2 <- rlm(df$lon[idx] ~ df$UTC[idx])
+    lon_speed2 <- summary(rlmfit2)$coefficients[2]*3600/180*pi # radians per hour
+    # speed during jump between segments
+    lon_jump <- first(rlmfit2$fitted.values)-last(rlmfit1$fitted.values)
+    lon_speed <- rbind(lon_speed,c(isegment,lon_speed1,lon_jump))
+  }
+  # add speed during last segment
+  lat_jump <- NA
+  lat_speed <- rbind(lat_speed,c(isegment,lat_speed2,lat_jump))
+  lon_jump <- NA
+  lon_speed <- rbind(lon_speed,c(isegment,lon_speed2,lon_jump))
+  
+  colnames(lat_speed) <- c("segment_number","lat1_speed_radperhr","lat_jump_between_radians")
+  colnames(lon_speed) <- c("segment_number","lon1_speed_radperhr","lon_jump_between_radians")
+  segment_speed <- Rearth*sqrt((lon_speed[,2]*cos(median(df$lat,na.rm=T)/180*pi))^2+(lat_speed[,2])^2) # meters per hour
+  #browser()
+  return(list("lats"=lat_speed,"longs"=lon_speed,"segspeed"=segment_speed))
+}
+```
+
+# function to get interval and jump speeds
+```{r}
+get_jump_speeds <- function(listerne,lon_in,lat_in)
+{
+  lon <- lon_in/180*pi # in radians
+  lat <- lat_in/180*pi
+  delta_t <- 3 # hours
+  
+  # calculate jump speeds
+  n_segments <- nrow(listerne$lats)
+  speed <- NULL
+  for (iseg in 1:(n_segments-1))
+  {
+    delta_lon <- listerne$longs[iseg+1,1]-listerne$longs[iseg,2] # in degrees
+    delta_lon <- delta_lon/180*pi # in radians
+    delta_lat  <- listerne$lats[iseg+1,1]-listerne$lats[iseg,2] # in degrees
+    delta_lat <- delta_lat/180*pi # in radians
+    speed <- rbind.data.frame(speed,c(iseg,Rearth/delta_t*sqrt(delta_lon^2*cos(lat)^2+delta_lat^2))) # in meters/hr
+  }
+  colnames(speed) <- c("jump_number","speed_metersph")
+  return(list("speed_jump"=speed))
+}
+```
+
+
+# read and plot each file
+```{r,fig.width=6,fig.height=9}
+# specify the important intervals:
+important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-24 00:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-31 00:00:00",tz="UTC"),as.POSIXct("2022-06-09 03:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-09 03:00:00",tz="UTC"),as.POSIXct("2022-07-09 12:00:00",tz="UTC")
+)
+limitdates <- NULL
+for (it in seq(from=1,to=length(important_times),by=2))
+{  limitdates <- rbind(limitdates,c(important_times[it],important_times[it+1]))}
+
+for (i_unitID in unitIDs)
+{
+  print("------------------------------------------")
+  print(paste(" Processing unitID ",i_unitID))
+  idx <- which(data$UnitID == i_unitID)
+  df <- data[idx,]
+  plot_stuff(df,i_unitID,limitdates)
+  # more better way
+  listerne <- model_motion(df,i_unitID,limitdates)
+  #browser()
+  segspeeds <- round(listerne$segspeed,2)
+  print(segspeeds)
+  # get speeds of various kinds from the list of jumps
+  speeds <- get_jump_speeds(listerne,lon=median(df$lon,na.rm=T),lat=median(df$lat,na.rm=T))
+  print(speeds)
+  
+}
+print("------------------------------------------")
+```
+
+
