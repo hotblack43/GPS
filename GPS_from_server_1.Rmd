@@ -28,7 +28,7 @@ returnlonlatUTC <- function(frame)
   df  <- NULL
   df$lon <- as.numeric(frame$Longitude)
   df$lat <- as.numeric(frame$Latitude)
-  df$UTC <- anytime(frame$UnixTimestampUtc/1000)
+  df$UTC <- anytime(frame$UnixTimestampUtc/1000,asUTC=T)
   df$Year <- year(df$UTC)
   df$Month <- month(df$UTC)
   df$Day <- day(df$UTC)

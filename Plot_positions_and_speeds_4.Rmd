@@ -18,14 +18,58 @@ library(lubridate)
 library(MASS)
 
 Rearth <- 6371*1e3 # meters
+```
 
+
+```{r}
 # read data stored previously by code "GPS_from_server_1.Rmd"
 data <- readRDS("OUTPUT/updated_file_of_GPS_observations.rds")
+data$UTC <- as.POSIXct(data$UTC,tz="UTC")
 idx <- which(data$Month < 4)
 data <- data[-idx,] # skip all data before March 31st
 unitIDs <- unique(data$UnitID)
-idx <- which(unitIDs == 88462)
-unitIDs <- unitIDs[-idx]
+idx <- order(unitIDs)
+unitIDs <- unitIDs[idx]
+#========================================================================
+# Have to patch Mallemuk from older file
+Mallemuk <- readRDS("OUTPUT/Mallemuk.rds")
+Mallemuk$`Timestamp UTC` <- as.POSIXct(Mallemuk$`Timestamp UTC`,tz="UTC")
+nyM <- Mallemuk[,c("Longitude","Latitude","Timestamp UTC")]
+nyM$Year <- year(nyM$`Timestamp UTC`)
+nyM$Month <- month(nyM$`Timestamp UTC`)
+nyM$Day <- day(nyM$`Timestamp UTC`)
+nyM$Hour <- hour(nyM$`Timestamp UTC`)
+nyM$Minute <- minute(nyM$`Timestamp UTC`)
+nyM$UnitID <- 88462
+nyM <- na.omit(nyM)
+nams <- colnames(data)
+colnames(nyM) <- nams
+# join
+data <- rbind.data.frame(data,nyM)
+#========================================================================
+# Have to patch Soekonge from older file
+Soekonge <- readRDS("OUTPUT/Soekonge.rds")
+Soekonge$`Timestamp UTC` <- as.POSIXct(Soekonge$`Timestamp UTC`,tz="UTC")
+nyS <- Soekonge[,c("Longitude","Latitude","Timestamp UTC")]
+nyS$Year <- year(nyS$`Timestamp UTC`)
+nyS$Month <- month(nyS$`Timestamp UTC`)
+nyS$Day <- day(nyS$`Timestamp UTC`)
+nyS$Hour <- hour(nyS$`Timestamp UTC`)
+nyS$Minute <- minute(nyS$`Timestamp UTC`)
+nyS$UnitID <- 88319
+nyS <- na.omit(nyS)
+nams <- colnames(data)
+colnames(nyS) <- nams
+# join
+data <- rbind.data.frame(data,nyS)
+# remove duplicated rows across dataframe
+hej <- data %>%  distinct(.keep_all = FALSE)
+data <- hej
+write.table(data,"OUTPUT/dummy.csv",sep=";",quote = F,row.names = F)
+data <- read.csv2("OUTPUT/dummy.csv",sep=";",stringsAsFactors = FALSE)
+data$lon <- as.numeric(data$lon)
+data$lat <- as.numeric(data$lat)
+data$UTC <- ISOdatetime(data$Year,data$Month,data$Day,data$Hour,data$Minute,sec=0,tz="UTC")
 ```
 
 ## Utility GC formula
@@ -113,30 +157,30 @@ model_motion <- function(df,statname,limitdates)
   # loop over limitdates and model positions before and after each limitdate
   for (isegment in 1:(nsegments-1))
   {
-    
+    #browser()
     # lat
     # first segment
     idx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
-
     rlmfit1 <- rlm(df$lat[idx] ~ df$UTC[idx])
     lat_speed1 <- summary(rlmfit1)$coefficients[2]*3600/180*pi # radians per hour
     # second segment
-    idx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
-        print(c(anytime(limitdates[isegment,1]),anytime(limitdates[isegment,2])))
-    print(length(idx))
-    rlmfit2 <- rlm(df$lat[idx] ~ df$UTC[idx])
+    jdx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
+    print(c(anytime(limitdates[isegment,1],asUTC=T),anytime(limitdates[isegment,2],asUTC=T)))
+    print(length(jdx))
+    #browser()
+    rlmfit2 <- rlm(df$lat[jdx] ~ df$UTC[jdx])
     lat_speed2 <- summary(rlmfit2)$coefficients[2]*3600/180*pi # radians per hour
     # speed during jump between segments
     lat_jump <- first(rlmfit2$fitted.values)-last(rlmfit1$fitted.values)
     lat_speed <- rbind(lat_speed,c(isegment,lat_speed1,lat_jump))
     # lon
     # first segment
-    idx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
-    rlmfit1 <- rlm(df$lon[idx] ~ df$UTC[idx])
+    kdx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
+    rlmfit1 <- rlm(df$lon[kdx] ~ df$UTC[kdx])
     lon_speed1 <- summary(rlmfit1)$coefficients[2]*3600/180*pi # radians per hour
     # second segment
-    idx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
-    rlmfit2 <- rlm(df$lon[idx] ~ df$UTC[idx])
+    ldx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
+    rlmfit2 <- rlm(df$lon[ldx] ~ df$UTC[ldx])
     lon_speed2 <- summary(rlmfit2)$coefficients[2]*3600/180*pi # radians per hour
     # speed during jump between segments
     lon_jump <- first(rlmfit2$fitted.values)-last(rlmfit1$fitted.values)
@@ -186,24 +230,25 @@ get_jump_speeds <- function(listerne,lon_in,lat_in)
 # specify the important intervals:
 important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 00:00:00",tz="UTC"),
                      as.POSIXct("2022-04-24 00:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
-                     as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:00",tz="UTC"),
-                     as.POSIXct("2022-05-31 00:00:00",tz="UTC"),as.POSIXct("2022-06-09 03:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:01",tz="UTC"),
+                     as.POSIXct("2022-05-31 00:00:01",tz="UTC"),as.POSIXct("2022-06-09 03:00:00",tz="UTC"),
                      as.POSIXct("2022-06-09 03:00:00",tz="UTC"),as.POSIXct("2022-07-09 12:00:00",tz="UTC")
 )
 limitdates <- NULL
 for (it in seq(from=1,to=length(important_times),by=2))
-{  limitdates <- rbind(limitdates,c(important_times[it],important_times[it+1]))}
+{  limitdates <- rbind(limitdates,c(anytime(important_times[it],asUTC=T),anytime(important_times[it+1],asUTC=T)))}
 
 for (i_unitID in unitIDs)
 {
   print("------------------------------------------")
   print(paste(" Processing unitID ",i_unitID))
-  idx <- which(data$UnitID == i_unitID)
-  df <- data[idx,]
+  mdx <- which(data$UnitID == i_unitID)
+  df <- data[mdx,]
   plot_stuff(df,i_unitID,limitdates)
-  # more better way
+  
+  # model speed as unconnected straight line segments
   listerne <- model_motion(df,i_unitID,limitdates)
-  #browser()
+  
   segspeeds <- round(listerne$segspeed,2)
   print(segspeeds)
   # get speeds of various kinds from the list of jumps
