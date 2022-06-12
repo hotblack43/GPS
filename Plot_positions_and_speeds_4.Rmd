@@ -5,7 +5,7 @@ output:
     fig_height: 9
 ---
 
-DOES NOT WORK YET model_speed comes up with idx empty
+DOES NOT WORK YET surge speeds are about 10x too large and Soekonge a.o. are not read in properly
 
 Version 4: plots from GPS data previously fetched from server with code "xxx.Rmd"
 
@@ -18,6 +18,8 @@ library(lubridate)
 library(MASS)
 
 Rearth <- 6371*1e3 # meters
+
+delta_t <- 0.66 # hours - estimated duration of a 'surge' (i.e. 1 time step in the data)
 ```
 
 
@@ -70,6 +72,7 @@ data <- read.csv2("OUTPUT/dummy.csv",sep=";",stringsAsFactors = FALSE)
 data$lon <- as.numeric(data$lon)
 data$lat <- as.numeric(data$lat)
 data$UTC <- ISOdatetime(data$Year,data$Month,data$Day,data$Hour,data$Minute,sec=0,tz="UTC")
+saveRDS(data,"OUTPUT/combined_GPS_data.rds")
 ```
 
 ## Utility GC formula
@@ -89,38 +92,12 @@ gcd.hf <- function(long1, lat1, long2, lat2) {
 
 ```
 
-# Define function to calculate speed
-```{r}
-getSpeed <- function(time,lon,lat)
-{
-  rtod <- pi/180
-  speed <- NULL
-  speed_smoo <- NULL
-  for (it in 1:(length(time)-1))
-  {
-    # calc great-circle distance between pairs of points
-    distance <- gcd.hf(rtod*lon[it+1],rtod*lat[it+1],rtod*lon[it],rtod*lat[it])
-    delta_time <- as.numeric(time[it+1]-time[it])/60 # dt in hours now
-    #browser()
-    # calc speed
-    speed <- c(speed,abs(distance/delta_time))
-  }
-  speed_smoo <- NULL
-  for (j in 1:(length(speed)-1))
-  {
-    speed_smoo <- rbind(speed_smoo,c(j,median(c(speed[j-2],speed[j-1],speed[j],speed[j+1],speed[j+1]),na.rm=TRUE)))
-  }
-  speed_smoo <- rbind(speed_smoo[1,],speed_smoo,speed_smoo[nrow(speed_smoo),])
-  #browser()
-  return(list("speed"=speed,"speed_smoo"=speed_smoo))
-}
-```
+ 
 
 # Plot coloured points
 ```{r}
 plotcolouredpoints <- function(x,y,limitdates,ipair,ivar)
 {
-   
   idx <- which(df$UTC >= limitdates[ipair,1] & df$UTC < limitdates[ipair,2])
   points(x[idx],y[idx],type="p",cex=0.3,col=1+ipair)
 }
@@ -154,36 +131,38 @@ model_motion <- function(df,statname,limitdates)
   nsegments <- nrow(limitdates)
   lat_speed <- NULL
   lon_speed <- NULL
-  # loop over limitdates and model positions before and after each limitdate
+  # loop over limitdates and model motion during segments of smooth motion (i.e. not the surges)
   for (isegment in 1:(nsegments-1))
   {
-    #browser()
+ #browser()
     # lat
     # first segment
     idx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
     rlmfit1 <- rlm(df$lat[idx] ~ df$UTC[idx])
     lat_speed1 <- summary(rlmfit1)$coefficients[2]*3600/180*pi # radians per hour
+ 
     # second segment
     jdx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
-    print(c(anytime(limitdates[isegment,1],asUTC=T),anytime(limitdates[isegment,2],asUTC=T)))
-    print(length(jdx))
-    #browser()
     rlmfit2 <- rlm(df$lat[jdx] ~ df$UTC[jdx])
     lat_speed2 <- summary(rlmfit2)$coefficients[2]*3600/180*pi # radians per hour
+    
     # speed during jump between segments
-    lat_jump <- first(rlmfit2$fitted.values)-last(rlmfit1$fitted.values)
+    lat_jump <- rlmfit2$fitted.values[1]-rlmfit1$fitted.values[length(rlmfit1$fitted.values)]
     lat_speed <- rbind(lat_speed,c(isegment,lat_speed1,lat_jump))
+    
     # lon
     # first segment
     kdx <- which(df$UTC >= limitdates[isegment,1] & df$UTC < limitdates[isegment,2] )
     rlmfit1 <- rlm(df$lon[kdx] ~ df$UTC[kdx])
     lon_speed1 <- summary(rlmfit1)$coefficients[2]*3600/180*pi # radians per hour
+    
     # second segment
     ldx <- which(df$UTC >= limitdates[isegment+1,1] & df$UTC < limitdates[isegment+1,2] )
     rlmfit2 <- rlm(df$lon[ldx] ~ df$UTC[ldx])
     lon_speed2 <- summary(rlmfit2)$coefficients[2]*3600/180*pi # radians per hour
+    
     # speed during jump between segments
-    lon_jump <- first(rlmfit2$fitted.values)-last(rlmfit1$fitted.values)
+    lon_jump <- rlmfit2$fitted.values[1]-rlmfit1$fitted.values[length(rlmfit1$fitted.values)]
     lon_speed <- rbind(lon_speed,c(isegment,lon_speed1,lon_jump))
   }
   # add speed during last segment
@@ -192,8 +171,8 @@ model_motion <- function(df,statname,limitdates)
   lon_jump <- NA
   lon_speed <- rbind(lon_speed,c(isegment,lon_speed2,lon_jump))
   
-  colnames(lat_speed) <- c("segment_number","lat1_speed_radperhr","lat_jump_between_radians")
-  colnames(lon_speed) <- c("segment_number","lon1_speed_radperhr","lon_jump_between_radians")
+  colnames(lat_speed) <- c("segment_number","lat1_speed_radperhr","lat_jump_radians")
+  colnames(lon_speed) <- c("segment_number","lon1_speed_radperhr","lon_jump_radians")
   segment_speed <- Rearth*sqrt((lon_speed[,2]*cos(median(df$lat,na.rm=T)/180*pi))^2+(lat_speed[,2])^2) # meters per hour
   #browser()
   return(list("lats"=lat_speed,"longs"=lon_speed,"segspeed"=segment_speed))
@@ -202,8 +181,9 @@ model_motion <- function(df,statname,limitdates)
 
 # function to get interval and jump speeds
 ```{r}
-get_jump_speeds <- function(listerne,lon_in,lat_in)
+get_surge_speeds <- function(listerne,lon_in,lat_in)
 {
+   
   lon <- lon_in/180*pi # in radians
   lat <- lat_in/180*pi
   delta_t <- 3 # hours
@@ -213,17 +193,15 @@ get_jump_speeds <- function(listerne,lon_in,lat_in)
   speed <- NULL
   for (iseg in 1:(n_segments-1))
   {
-    delta_lon <- listerne$longs[iseg+1,1]-listerne$longs[iseg,2] # in degrees
-    delta_lon <- delta_lon/180*pi # in radians
-    delta_lat  <- listerne$lats[iseg+1,1]-listerne$lats[iseg,2] # in degrees
-    delta_lat <- delta_lat/180*pi # in radians
+    delta_lon <- listerne$longs[iseg,3]
+    delta_lat  <- listerne$lats[iseg,3]
+     
     speed <- rbind.data.frame(speed,c(iseg,Rearth/delta_t*sqrt(delta_lon^2*cos(lat)^2+delta_lat^2))) # in meters/hr
   }
   colnames(speed) <- c("jump_number","speed_metersph")
   return(list("speed_jump"=speed))
 }
 ```
-
 
 # read and plot each file
 ```{r,fig.width=6,fig.height=9}
@@ -251,9 +229,10 @@ for (i_unitID in unitIDs)
   listerne <- model_motion(df,i_unitID,limitdates)
   
   segspeeds <- round(listerne$segspeed,2)
+  print("Segment speeds in m/hr : ")
   print(segspeeds)
-  # get speeds of various kinds from the list of jumps
-  speeds <- get_jump_speeds(listerne,lon=median(df$lon,na.rm=T),lat=median(df$lat,na.rm=T))
+  # get surge speeds
+  speeds <- get_surge_speeds(listerne,lon=median(df$lon,na.rm=T),lat=median(df$lat,na.rm=T))
   print(speeds)
   
 }

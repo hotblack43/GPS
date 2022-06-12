@@ -1,15 +1,14 @@
 ---
-title: "Plot positions and speeds"
+title: "Plot positions only"
 output: 
   pdf_document: 
     fig_height: 9
 ---
 
 
-Plots the GPS poistions as eastings and northings on a map.
+Plots the GPS positions as eastings and northings on a map.
 
-Reads .xlsx files
-Outputs .rds files for columns not all NA
+ 
 
 ```{r}
 rm(list=ls())
@@ -21,23 +20,14 @@ library(dsm)
 
 Rearth <- 6371*1e3 # meters
 
+data <- readRDS("OUTPUT/combined_GPS_data.rds")
+IDs <- unique(data$UnitID)
 ```
-
-# 
-
-
-
-
-
-
-
-
 
 
 # read and plot each file
 ```{r,fig.width=6,fig.height=9}
-files <- c('OUTPUT/Mallemuk.rds','OUTPUT/Soekonge.rds','OUTPUT/Ismaage.rds','OUTPUT/Havterne.rds','OUTPUT/Havoern.rds','OUTPUT/Edder.rds')
-#files <- files[1]
+ 
 # list the important times - start, jumps, ending:
 important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-7 00:00:00",tz="UTC"),
                      as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
@@ -48,21 +38,22 @@ for (it in 1:(length(important_times)-1))
   limitdates <- c(limitdates,c(important_times[it],important_times[it+1]))
 }
 
-for (ifil in 1:length(files))
+for (ifil in IDs)
 {
-  name <- files[ifil]
+  name <- ifil
   print("------------------------------------------")
   print(paste(" Processing file ",name))
   
-  statname <- strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
-  df <- readRDS(files[ifil])
-  df <- df[,c("Longitude","Latitude","POSIX")]
-  df <- na.omit(df)
-  xy <- latlong2km(df$Longitude, df$Latitude)
   
-  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=statname,type="b",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
-  png(paste0("FIGURES/map_",statname,'.png'))
-  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=statname,type="b",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
+  sdx <- which(data$UnitID == ifil)
+  df <- data[sdx,]
+  df <- na.omit(df)
+  xy <- latlong2km(df$lon, df$lat)
+  delta_t <- unname((max(df$UTC)-min(df$UTC))/nrow(df))[[1]] # days
+  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=name,type="b",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
+  legend("topleft",legend=paste("Step length : ",round(delta_t*24,2)," hours"))
+  png(paste0("FIGURES/map_",name,'.png'))
+  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=name,type="b",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
   dev.off()    
 }
 print("------------------------------------------")
