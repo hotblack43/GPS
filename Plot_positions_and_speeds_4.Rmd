@@ -28,8 +28,8 @@ data$UTC <- as.POSIXct(data$UTC,tz="UTC")
 idx <- which(data$Month < 4)
 data <- data[-idx,] # skip all data before March 31st
 unitIDs <- unique(data$UnitID)
-idx <- order(unitIDs)
-unitIDs <- unitIDs[idx]
+#idx <- order(unitIDs)
+#unitIDs <- unitIDs[rev(idx)]
 #========================================================================
 # Have to patch Mallemuk from older file
 Mallemuk <- readRDS("OUTPUT/Mallemuk.rds")
@@ -228,11 +228,12 @@ get_jump_speeds <- function(listerne,lon_in,lat_in)
 # read and plot each file
 ```{r,fig.width=6,fig.height=9}
 # specify the important intervals:
-important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 00:00:00",tz="UTC"),
-                     as.POSIXct("2022-04-24 00:00:00",tz="UTC"),as.POSIXct("2022-04-27 17:00:00",tz="UTC"),
-                     as.POSIXct("2022-04-27 17:00:00",tz="UTC"),as.POSIXct("2022-05-31 00:00:01",tz="UTC"),
-                     as.POSIXct("2022-05-31 00:00:01",tz="UTC"),as.POSIXct("2022-06-09 03:00:00",tz="UTC"),
-                     as.POSIXct("2022-06-09 03:00:00",tz="UTC"),as.POSIXct("2022-07-09 12:00:00",tz="UTC")
+important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-07 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-07 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 12:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 12:00:01",tz="UTC"),
+                     as.POSIXct("2022-04-27 12:00:01",tz="UTC"),as.POSIXct("2022-05-03 03:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-03 03:00:00",tz="UTC"),as.POSIXct("2022-05-19 22:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-19 22:00:00",tz="UTC"),as.POSIXct("2022-06-09 02:00:00",tz="UTC")
 )
 limitdates <- NULL
 for (it in seq(from=1,to=length(important_times),by=2))
