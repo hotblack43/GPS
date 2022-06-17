@@ -6,7 +6,7 @@ output:
 ---
 
 
-Version 3: calculates speed at the sudden changes in location. This is just an EXAMPLE code acting only on Latitude. Later versions will set up Longitud ealso as well as the actual ground speed.
+Version 3: calculates speed at the sudden changes in location. This is just an EXAMPLE code acting only on Latitude. Later versions will set up Longitude also as well as the actual ground speed.
 
 Reads .xlsx files
 Outputs .rds files for columns not all NA

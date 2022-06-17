@@ -26,7 +26,7 @@ delta_t <- 0.66 # hours - estimated duration of a 'surge' (i.e. 1 time step in t
 ```{r}
 # read data stored previously by code "GPS_from_server_1.Rmd"
 data <- readRDS("OUTPUT/updated_file_of_GPS_observations.rds")
-data$UTC <- as.POSIXct(data$UTC,tz="UTC")
+#data$POSIX <- as.POSIXct(data$UTC,tz="UTC")
 idx <- which(data$Month < 4)
 data <- data[-idx,] # skip all data before March 31st
 unitIDs <- unique(data$UnitID)
@@ -71,7 +71,7 @@ write.table(data,"OUTPUT/dummy.csv",sep=";",quote = F,row.names = F)
 data <- read.csv2("OUTPUT/dummy.csv",sep=";",stringsAsFactors = FALSE)
 data$lon <- as.numeric(data$lon)
 data$lat <- as.numeric(data$lat)
-data$UTC <- ISOdatetime(data$Year,data$Month,data$Day,data$Hour,data$Minute,sec=0,tz="UTC")
+data$POSIX <- ISOdatetime(data$Year,data$Month,data$Day,data$Hour,data$Minute,sec=0,tz="UTC")
 saveRDS(data,"OUTPUT/combined_GPS_data.rds")
 ```
 
@@ -109,6 +109,7 @@ plotcolouredpoints <- function(x,y,limitdates,ipair,ivar)
 ```{r}
 plot_stuff <- function(df,name,limitdates)
 {
+  #browser()
   par(mfrow=c(3,1))
   npairs <- nrow(limitdates)
   statname <- name
@@ -116,11 +117,12 @@ plot_stuff <- function(df,name,limitdates)
   plot(df$lon,df$lat,type="p",cex=0.3,xlab="lon",ylab="lat",main=statname)
   for (ipair in 1:npairs){  plotcolouredpoints(df$lon,df$lat,limitdates,ipair,'')  }
   # Plot lon vs time
-  plot(df$UTC,df$lon,type="p",cex=0.3,xlab="Date/Time",ylab="lon",main=statname)
-  for (ipair in 1:npairs){  plotcolouredpoints(df$UTC,df$lon,limitdates,ipair,'')  }
+  plot(df$POSIX,df$lon,type="p",cex=0.3,xlab="Date/Time",ylab="lon",main=statname)
+  for (ipair in 1:npairs){  plotcolouredpoints(df$POSIX,df$lon,limitdates,ipair,'')  }
   # Plot lat vs time
-  plot(df$UTC,df$lat,type="p",cex=0.3,xlab="Date/Time",ylab="lat",main=statname)
-  for (ipair in 1:npairs){  plotcolouredpoints(df$UTC,df$lat,limitdates,ipair,'')  }
+  plot(df$POSIX,df$lat,type="p",cex=0.3,xlab="Date/Time",ylab="lat",main=statname)
+  for (ipair in 1:npairs){  plotcolouredpoints(df$POSIX,df$lat,limitdates,ipair,'')  }
+  print('Returning from plot_stuff')
 }
 ```
 
@@ -179,6 +181,75 @@ model_motion <- function(df,statname,limitdates)
 }
 ```
 
+# Modle motion 2
+# model positions and calculate speeds at jumps
+```{r}
+model_motion2 <- function(df,name,limitdates)
+{
+  
+  par(mfrow=c(3,1))
+  nlimits <- length(limitdates)
+  statname <- name #strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
+  # Latitude
+  latitude_pred_at_interval_left_right <- NULL
+  lat_speed <- NULL
+  # loop over limidates and model positions before and after each limitdate
+  for (ilimit in seq(from=1,to=(nlimits-1),by=2))
+  {
+    idx <- which(df$POSIX >= limitdates[ilimit] & df$POSIX < limitdates[ilimit+1] & !is.na(df$lat) )
+    rlmfit <- rlm(df$lat[idx] ~ df$POSIX[idx])
+    lat_speed <- rbind.data.frame(lat_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+    #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
+    if (ilimit == 1) {
+      #browser()
+      plot(df$POSIX[idx],df$lat[idx],type="p",xlim=range(df$POSIX),ylim=range(df$lat,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
+      lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+      # evaluate diff at jump
+      latitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+    }
+    if (ilimit  > 1) {
+      points(df$POSIX[idx],df$lat[idx])
+      lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+      #
+      latitude_pred_at_interval_left_right  <- rbind.data.frame(latitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+      
+    }
+    
+  }
+  colnames(lat_speed) <- c("segment_number","lat_speed_radperhr")
+  # Longitude
+  longitude_pred_at_interval_left_right <- NULL
+  lon_speed <- NULL
+  # loop over limidates and model positions before and after each limitdate
+  for (ilimit in seq(from=1,to=(nlimits-1),by=2))
+  {
+    idx <- which(df$POSIX >= limitdates[ilimit] & df$POSIX < limitdates[ilimit+1] & !is.na(df$lon) )
+    rlmfit <- rlm(df$lon[idx] ~ df$POSIX[idx])
+    lon_speed <- rbind.data.frame(lon_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+    #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
+    if (ilimit == 1) {
+      #browser()
+      plot(df$POSIX[idx],df$lon[idx],type="p",xlim=range(df$POSIX),ylim=range(df$lon,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
+      lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+      # evaluate diff at jump
+      longitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+    }
+    if (ilimit  > 1) {
+      points(df$POSIX[idx],df$lon[idx])
+      lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+      #
+      longitude_pred_at_interval_left_right  <- rbind.data.frame(longitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+      
+    }
+    
+  }
+  colnames(lon_speed) <- c("segment_number","lon_speed_radperhr")
+  segment_speed <- Rearth*sqrt((lon_speed[,2]*cos(median(df$lat,na.rm=T)/180*pi))^2+(lat_speed[,2])^2) # meters per hour
+  #browser()
+  return(list("lats"=latitude_pred_at_interval_left_right,"longs"=longitude_pred_at_interval_left_right,"segspeed"=segment_speed))
+}
+```
+
 # function to get interval and jump speeds
 ```{r}
 get_surge_speeds <- function(listerne,lon_in,lat_in)
@@ -226,8 +297,8 @@ for (i_unitID in unitIDs)
   plot_stuff(df,i_unitID,limitdates)
   
   # model speed as unconnected straight line segments
-  listerne <- model_motion(df,i_unitID,limitdates)
-  
+  #listerne <- model_motion(df,i_unitID,limitdates)
+  listerne <- model_motion2(df,i_unitID,limitdates)
   segspeeds <- round(listerne$segspeed,2)
   print("Segment speeds in m/hr : ")
   print(segspeeds)
