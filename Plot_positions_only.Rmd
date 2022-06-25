@@ -17,6 +17,7 @@ library(dplyr)
 library(lubridate)
 library(MASS)
 library(dsm)
+library(anytime)
 
 Rearth <- 6371*1e3 # meters
 
@@ -38,7 +39,7 @@ important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022
                      as.POSIXct("2022-06-09 02:00:00",tz="UTC"),as.POSIXct("2022-06-15 02:00:00",tz="UTC"),
                      as.POSIXct("2022-06-15 02:00:00",tz="UTC"),as.POSIXct("2022-06-25 00:00:00",tz="UTC"),
                      as.POSIXct("2022-06-25 00:00:00",tz="UTC"),as.POSIXct("2023-06-20 02:00:00",tz="UTC"))
-limitdates <- NULL
+limitdates <- NULL 
 for (it in seq(from=1,to=length(important_times),by=2))
 {  limitdates <- rbind(limitdates,c(anytime(important_times[it],asUTC=T),anytime(important_times[it+1],asUTC=T)))}
 

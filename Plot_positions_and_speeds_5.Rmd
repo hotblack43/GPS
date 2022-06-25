@@ -245,7 +245,7 @@ limitdates <- NULL
 for (it in seq(from=1,to=length(important_times),by=2))
 {  limitdates <- rbind(limitdates,c(anytime(important_times[it],asUTC=T),anytime(important_times[it+1],asUTC=T)))}
 
-for (i_unitID in unitIDs)
+for (i_unitID in unitIDs) 
 #  for (i_unitID in c(88462))
 {
   print("------------------------------------------")

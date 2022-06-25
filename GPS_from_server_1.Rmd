@@ -73,7 +73,7 @@ for (id in IDs)
   }
   
   print(paste(id,length(idx),anytime(range(df3$UTC[idx]),asUTC=T)))
-  plot(df3$UTC[idx],df3$lat[idx],main=id)
+  plot(df3$UTC[idx],df3$lat[idx],main=id) 
 }
 ```
 
