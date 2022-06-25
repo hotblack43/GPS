@@ -5,8 +5,7 @@ output:
     fig_height: 9
 ---
 
-Seems to work now. Next version annotaes the plots with speeds.
-
+Version 5. Like v 4, buta nnotaes the plots with speeds of the smooth motion as well as the surges.
 Version 4: plots from GPS data previously fetched from server with code "xxx.Rmd"
 
 ```{r}
@@ -144,7 +143,7 @@ model_motion2 <- function(df,name,limitdates)
   {
     idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$lat) )
     if (length(idx) != 0){
-    print(c("e",length(idx)))
+    #print(c("e",length(idx)))
     rlmfit <- rlm(df$lat[idx] ~ df$POSIX[idx])
     lat_speed <- rbind.data.frame(lat_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
     #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
@@ -173,7 +172,7 @@ model_motion2 <- function(df,name,limitdates)
   {
     idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$lon) )
     if (length(idx) != 0){
-      print(c("f",length(idx)))
+      #print(c("f",length(idx)))
     rlmfit <- rlm(df$lon[idx] ~ df$POSIX[idx])
     lon_speed <- rbind.data.frame(lon_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
     #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
@@ -238,8 +237,10 @@ important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022
                      as.POSIXct("2022-04-27 12:00:01",tz="UTC"),as.POSIXct("2022-05-03 03:00:00",tz="UTC"),
                      as.POSIXct("2022-05-03 03:00:00",tz="UTC"),as.POSIXct("2022-05-19 22:00:00",tz="UTC"),
                      as.POSIXct("2022-05-19 22:00:00",tz="UTC"),as.POSIXct("2022-06-09 02:00:00",tz="UTC"),
-                     as.POSIXct("2022-06-09 02:00:00",tz="UTC"),as.POSIXct("2022-06-18 02:00:00",tz="UTC")
-)
+                     as.POSIXct("2022-06-09 02:00:00",tz="UTC"),as.POSIXct("2022-06-15 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-15 02:00:00",tz="UTC"),as.POSIXct("2022-06-25 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-25 00:00:00",tz="UTC"),as.POSIXct("2023-06-20 02:00:00",tz="UTC"))
+
 limitdates <- NULL
 for (it in seq(from=1,to=length(important_times),by=2))
 {  limitdates <- rbind(limitdates,c(anytime(important_times[it],asUTC=T),anytime(important_times[it+1],asUTC=T)))}

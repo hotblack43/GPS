@@ -65,7 +65,7 @@ saveRDS(df2,"OUTPUT/updated_file_of_GPS_observations.rds")
 df3 <- readRDS("OUTPUT/updated_file_of_GPS_observations.rds")
 IDs <- unique(df3$UnitID)
 for (id in IDs)
-{
+{ 
   idx <- which(df3$UnitID == id)
   if (id == 88319){
     kdx <- which(df3$lat[idx] > 77.64)
