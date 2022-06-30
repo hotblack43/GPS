@@ -6,7 +6,7 @@ output:
 ---
 
 Version 5. Like v 4, buta nnotaes the plots with speeds of the smooth motion as well as the surges.
-Version 4: plots from GPS data previously fetched from server with code "xxx.Rmd"
+Version 4: plots from GPS data previously fetched from server with code "GPS_from_server_1.Rmd"
 
 ```{r}
 rm(list=ls())
