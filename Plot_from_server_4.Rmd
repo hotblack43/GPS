@@ -5,6 +5,7 @@ output:
     fig_height: 9
 ---
 
+Version 4: Needs to do the sort of plots we do with "Plot_positions_only.Rmd"
 
 Version 3: calculates speed at the sudden changes in location. This is just an EXAMPLE code acting only on Latitude. Later versions will set up Longitude also as well as the actual ground speed.
 
@@ -126,7 +127,7 @@ plot_stuff <- function(df,name,limitdates)
 model_motion <- function(df,name,limitdates)
 {
   
-  par(mfrow=c(3,1))
+  par(mfrow=c(2,1))
   nlimits <- length(limitdates)
   statname <- strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
   # Latitude
@@ -216,6 +217,7 @@ get_jump_speeds <- function(listerne,lon_in,lat_in)
 
 # read and plot each file
 ```{r,fig.width=6,fig.height=9}
+pdf(file="FIGURES/all_motions.pdf")
 files <- c('OUTPUT/Mallemuk.rds','OUTPUT/Soekonge.rds','OUTPUT/Ismaage.rds','OUTPUT/Havterne.rds','OUTPUT/Havoern.rds','OUTPUT/Edder.rds')
 #files <- files[1]
 # list the important times - start, jumps, ending:
@@ -250,6 +252,7 @@ for (ifil in 1:length(files))
   
 }
 print("------------------------------------------")
+dev.off()
 ```
 
 
