@@ -43,6 +43,11 @@ returnlonlatUTC <- function(frame)
 
 # Merge into one frame 
 ```{r}
+
+
+# WHy not rbind here????
+
+
 df <- returnlonlatUTC(Havørn)
 df2 <- df
 df <- merge(df,returnlonlatUTC(Havterne),by=c("Year","Month","Day","Hour","Minute"),all=T)
@@ -66,7 +71,7 @@ saveRDS(df2,"OUTPUT/updated_file_of_GPS_observations.rds")
 # Inventory
 ```{r}
 df3 <- readRDS("OUTPUT/updated_file_of_GPS_observations.rds")
-IDs <- unique(df3$UnitID)
+IDs <- sort(unique(df3$UnitID))
 for (id in IDs)
 { 
   idx <- which(df3$UnitID == id)
