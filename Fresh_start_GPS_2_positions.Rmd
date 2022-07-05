@@ -1,0 +1,236 @@
+---
+title: "Plot positions only"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+
+Plots the GPS positions as eastings and northings on a map.
+
+
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/GPS/")
+library(dplyr)
+library(lubridate)
+library(MASS)
+library(dsm)
+library(anytime)
+
+Rearth <- 6371*1e3 # meters
+
+data <- readRDS("OUTPUT/complete_GPS_data.rds")
+data$Longitude <- as.numeric(data$Longitude)
+data$Latitude <- as.numeric(data$Latitude)
+data <- unique(data)
+IDs <- sort(unique(data$UnitId))
+# cull on date
+idx <- which(month(data$POSIX) > 3)
+data <- data[idx,]
+```
+
+## Utility GC formula
+```{r}
+
+# Calculates the geodesic distance between two points specified by radian lat/lon using the
+# Haversine formula (hf)
+gcd.hf <- function(long1, lat1, long2, lat2) {
+  R <- 6371*1000 # Earth mean radius [m]
+  delta.long <- (long2 - long1)
+  delta.lat <- (lat2 - lat1)
+  a <- sin(delta.lat/2)^2 + cos(lat1) * cos(lat2) * sin(delta.long/2)^2
+  c <- 2 * asin(min(1,sqrt(a)))
+  d = R * c
+  return(d) # Distance in m
+}
+
+```
+
+
+
+# read and plot each file
+```{r,fig.width=6,fig.height=6}
+
+# list the important times - start, jumps, ending:
+important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-07 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-07 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 12:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 12:00:01",tz="UTC"),
+                     as.POSIXct("2022-04-27 12:00:01",tz="UTC"),as.POSIXct("2022-05-03 03:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-03 03:00:00",tz="UTC"),as.POSIXct("2022-05-19 22:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-19 22:00:00",tz="UTC"),as.POSIXct("2022-06-09 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-09 02:00:00",tz="UTC"),as.POSIXct("2022-06-15 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-15 02:00:00",tz="UTC"),as.POSIXct("2022-06-25 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-25 00:00:00",tz="UTC"),as.POSIXct("2022-06-30 23:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-30 23:00:00",tz="UTC"),as.POSIXct("2023-06-20 02:00:00",tz="UTC"))
+list_of_eventful_dates <- unique(sort(important_times))
+limitdates <- NULL 
+for (it in seq(from=1,to=length(important_times),by=2))
+{  limitdates <- rbind(limitdates,c(anytime(important_times[it],asUTC=T),anytime(important_times[it+1],asUTC=T)))}
+
+
+for (ifil in IDs)
+{
+  name <- ifil
+  print("------------------------------------------")
+  print(paste(" Processing file ",name))
+  
+  sdx <- which(data$UnitId == ifil)
+  df <- data[sdx,]
+  df <- na.omit(df)
+  xy <- latlong2km(df$Longitude, df$Latitude)
+  
+  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=name,type="p",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
+  
+  # overplot colours for each segment
+  for (iseg in 1:nrow(limitdates))
+  {
+    idx <- which(df$POSIX >= limitdates[iseg,1] & df$POSIX < limitdates[iseg,2])
+    points(xy$km.e[idx]*1000,xy$km.n[idx]*1000,col=iseg,pch=19,cex=0.4)
+  } # end iseg loop
+  print("------------------------------------------")
+} # end ifil loop
+```
+# Plot coloured points
+```{r}
+plotcolouredpoints <- function(x,y,limitdates,ipair,ivar)
+{
+  idx <- which(df$UTC >= limitdates[ipair,1] & df$UTC < limitdates[ipair,2])
+  points(x[idx],y[idx],type="p",cex=0.3,col=1+ipair)
+}
+```
+
+# Model motion 2
+# model positions and calculate speeds at jumps
+```{r}
+model_motion2 <- function(df,name,limitdates)
+{
+  
+  par(mfrow=c(3,1))
+  nlimits <- nrow(limitdates)
+  statname <- name #strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
+  # Latitude
+  latitude_pred_at_interval_left_right <- NULL
+  lat_speed <- NULL
+  # loop over limidates and model positions before and after each limitdate
+  plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
+  for (ilimit in 1:nlimits)
+  {
+    idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$Latitude) )
+    if (length(idx) != 0){
+      rlmfit <- rlm(df$Latitude[idx] ~ df$POSIX[idx])
+      lat_speed <- rbind.data.frame(lat_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+      if (ilimit == 1) {
+        #plot(df$POSIX[idx],df$Latitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
+        points(df$POSIX[idx],df$Latitude[idx])
+        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        # evaluate diff at jump
+        latitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+      }
+      if (ilimit  > 1) {
+        points(df$POSIX[idx],df$Latitude[idx])
+        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        #
+        latitude_pred_at_interval_left_right  <- rbind.data.frame(latitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+      }
+    } # end length(idx)
+  }
+  colnames(lat_speed) <- c("segment_number","lat_speed_radperhr")
+  # Longitude
+  longitude_pred_at_interval_left_right <- NULL
+  lon_speed <- NULL
+  # loop over limidates and model positions before and after each limitdate
+  plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
+  for (ilimit in 1:nlimits)
+  {
+    idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$Longitude) )
+    if (length(idx) != 0){
+      #print(c("f",length(idx)))
+      rlmfit <- rlm(df$Longitude[idx] ~ df$POSIX[idx])
+      lon_speed <- rbind.data.frame(lon_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+      #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
+      if (ilimit == 1) {
+        #browser()
+        #plot(df$POSIX[idx],df$Longitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
+        points(df$POSIX[idx],df$Longitude[idx])
+        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        # evaluate diff at jump
+        longitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+      }
+      if (ilimit  > 1) {
+        points(df$POSIX[idx],df$Longitude[idx])
+        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        #
+        longitude_pred_at_interval_left_right  <- rbind.data.frame(longitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+        
+      }
+    }
+  }
+  colnames(lon_speed) <- c("segment_number","lon_speed_radperhr")
+  
+  segment_speed <- Rearth*sqrt((lon_speed[,2]*cos(median(df$Latitude,na.rm=T)/180*pi))^2+(lat_speed[,2])^2) # meters per hour
+  
+  return(list("lats"=latitude_pred_at_interval_left_right,"longs"=longitude_pred_at_interval_left_right,"segspeed"=segment_speed))
+}
+```
+
+# function to get interval and jump speeds
+```{r}
+get_surge_speeds <- function(listerne,lon_in,lat_in)
+{
+  
+  lon <- lon_in/180*pi # in radians
+  lat <- lat_in/180*pi
+  delta_t <- 1 # hours
+  
+  lon_here <- listerne$longs
+  lat_here <- listerne$lats
+  
+  # calculate jump speeds
+  n_segments <- nrow(listerne$lats)
+  speed <- NULL
+  for (iseg in 1:(n_segments-1))
+  {
+    delta_lon <- (lon_here[iseg,2]-lon_here[iseg+1,1])/180*pi
+    delta_lat <- (lat_here[iseg,2]-lat_here[iseg+1,1])/180*pi
+    
+    speed <- rbind.data.frame(speed,c(iseg,Rearth/delta_t*sqrt(delta_lon^2*cos(lat)^2+delta_lat^2))) # in meters/hr
+  }
+  colnames(speed) <- c("jump_number","speed_metersph")
+  #browser()
+  return(list("speed_jump"=speed))
+}
+```
+
+# read and plot each file
+```{r,fig.width=6,fig.height=6}
+for (id in IDs) 
+  
+{
+  print("------------------------------------------")
+  print(paste(" Processing unitID ",id))
+  mdx <- which(data$UnitId == id)
+  df <- data[mdx,]
+
+  # model speed as unconnected straight line segments
+  listerne <- model_motion2(df,id,limitdates)
+  
+  segspeeds <- round(listerne$segspeed,2)
+  print("Segment speeds in m/hr : ")
+  print(segspeeds)
+  
+  # get surge speeds
+  speeds <- get_surge_speeds(listerne,lon=median(df$Longitude,na.rm=T),lat=median(df$Latitude,na.rm=T))
+  print(speeds)
+  #browser()
+}
+print("------------------------------------------")
+```
+
+# Summary of eventful dates
+```{r}
+list_of_eventful_dates
+```
+
+
