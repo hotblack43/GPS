@@ -66,6 +66,7 @@ data <- rbind.data.frame(data,nyS)
 # remove duplicated rows across dataframe
 hej <- data %>%  distinct(.keep_all = FALSE)
 data <- hej
+hej <- NULL
 write.table(data,"OUTPUT/dummy.csv",sep=";",quote = F,row.names = F)
 data <- read.csv2("OUTPUT/dummy.csv",sep=";",stringsAsFactors = FALSE)
 data$lon <- as.numeric(data$lon)
