@@ -12,6 +12,7 @@ rm(list=ls())
 library("jsonlite")
 library(anytime)
 library(lubridate)
+library(dplyr)
 
 Havørn <-    jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=hmM3Tkj7Hqzd9bx1&id=88463&skip=0&count=10000')
 Havterne <-  jsonlite::fromJSON('https://client.trusted.dk/Public/GetTrail?key=hHMt6mnY6lP559N5&id=88465&skip=0&count=10000')
