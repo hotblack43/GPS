@@ -29,6 +29,9 @@ IDs <- sort(unique(data$UnitId))
 # cull on date
 idx <- which(month(data$POSIX) > 3)
 data <- data[idx,]
+# get the list of Station numbers vs station names
+namesnumbers <- read.csv("DATA/names_numbers.txt",sep="",header=F)
+namesnumbers[,1] <- as.character(namesnumbers[,1])
 ```
 
 ## Utility GC formula
@@ -81,8 +84,8 @@ for (ifil in IDs)
   df <- na.omit(df)
   xy <- latlong2km(df$Longitude, df$Latitude)
   
-  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=name,type="p",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
-  
+  #plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=namesnumbers[which(namesnumbers[,2] == name),1],type="p",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
+  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=namesnumbers[which(namesnumbers[,2] == name),1],type="p",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
   # overplot colours for each segment
   for (iseg in 1:nrow(limitdates))
   {
@@ -114,7 +117,8 @@ model_motion2 <- function(df,name,limitdates)
   latitude_pred_at_interval_left_right <- NULL
   lat_speed <- NULL
   # loop over limidates and model positions before and after each limitdate
-  plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
+  #plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
+  plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=namesnumbers[which(namesnumbers[,2] == statname),1])
   for (ilimit in 1:nlimits)
   {
     idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$Latitude) )
@@ -141,7 +145,8 @@ model_motion2 <- function(df,name,limitdates)
   longitude_pred_at_interval_left_right <- NULL
   lon_speed <- NULL
   # loop over limidates and model positions before and after each limitdate
-  plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
+  #plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
+  plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=namesnumbers[which(namesnumbers[,2] == statname),1])
   for (ilimit in 1:nlimits)
   {
     idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$Longitude) )
