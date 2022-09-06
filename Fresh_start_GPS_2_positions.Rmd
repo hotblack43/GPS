@@ -8,7 +8,7 @@ output:
 
 Plots the GPS positions as eastings and northings on a map.
 
-
+TODO: When printing the segment and jump speeds, need to also print the dates that go with the jumps, make a joint tbale for all units
 
 ```{r}
 rm(list=ls())
@@ -29,9 +29,20 @@ IDs <- sort(unique(data$UnitId))
 # cull on date
 idx <- which(month(data$POSIX) > 3)
 data <- data[idx,]
+# cull on position - some a in Denmark ...
+idx <- which(data$Latitude > 56)
+data <- data[idx,]
 # get the list of Station numbers vs station names
 namesnumbers <- read.csv("DATA/names_numbers.txt",sep="",header=F)
 namesnumbers[,1] <- as.character(namesnumbers[,1])
+
+# Try a single 'cut-off' date for all units
+# try end of July as last useful date
+idx <- which(month(data$POSIX) < 8)
+data <- data[idx,]
+# try mid-July as last useful date
+idx <- which(data$POSIX < "2022-07-10")
+data <- data[idx,]
 ```
 
 ## Utility GC formula
@@ -66,7 +77,8 @@ important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022
                      as.POSIXct("2022-06-09 02:00:00",tz="UTC"),as.POSIXct("2022-06-15 02:00:00",tz="UTC"),
                      as.POSIXct("2022-06-15 02:00:00",tz="UTC"),as.POSIXct("2022-06-25 00:00:00",tz="UTC"),
                      as.POSIXct("2022-06-25 00:00:00",tz="UTC"),as.POSIXct("2022-06-30 23:00:00",tz="UTC"),
-                     as.POSIXct("2022-06-30 23:00:00",tz="UTC"),as.POSIXct("2023-06-20 02:00:00",tz="UTC"))
+                     as.POSIXct("2022-06-30 23:00:00",tz="UTC"),as.POSIXct("2022-07-14 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-07-14 23:00:00",tz="UTC"),as.POSIXct("2022-08-02 02:00:00",tz="UTC"))
 list_of_eventful_dates <- unique(sort(important_times))
 limitdates <- NULL 
 for (it in seq(from=1,to=length(important_times),by=2))
@@ -107,76 +119,141 @@ plotcolouredpoints <- function(x,y,limitdates,ipair,ivar)
 # Model motion 2
 # model positions and calculate speeds at jumps
 ```{r}
-model_motion2 <- function(df,name,limitdates)
+model_motion2 <- function(df, name, limitdates)
 {
-  
-  par(mfrow=c(2,1))
+  par(mfrow = c(2, 1))
   nlimits <- nrow(limitdates)
-  statname <- name #strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
+  statname <-
+    name #strsplit(strsplit(name, "/")[[1]][2],".rds")[[1]][1]
   # Latitude
   latitude_pred_at_interval_left_right <- NULL
   lat_speed <- NULL
   # loop over limidates and model positions before and after each limitdate
   #plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
-  plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=namesnumbers[which(namesnumbers[,2] == statname),1])
+  plot(
+    df$POSIX,
+    df$Latitude,
+    type = "p",
+    xlim = range(df$POSIX),
+    ylim = range(df$Latitude, na.rm = T),
+    xlab = "Time",
+    ylab = "Latitude",
+    main = namesnumbers[which(namesnumbers[, 2] == statname), 1],
+    pch = 19,
+    cex = 0.2
+  )
   for (ilimit in 1:nlimits)
   {
-    idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$Latitude) )
-    if (length(idx) != 0){
+    idx <-
+      which(df$POSIX >= limitdates[ilimit, 1] &
+              df$POSIX < limitdates[ilimit, 2] & !is.na(df$Latitude))
+    if (length(idx) != 0) {
       rlmfit <- rlm(df$Latitude[idx] ~ df$POSIX[idx])
-      lat_speed <- rbind.data.frame(lat_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+      lat_speed <-
+        rbind.data.frame(lat_speed,
+                         c(ilimit, summary(rlmfit)$coefficients[2] * 3600 / 180 * pi)) # radians per hour
       if (ilimit == 1) {
         #plot(df$POSIX[idx],df$Latitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
-        points(df$POSIX[idx],df$Latitude[idx])
-        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        points(df$POSIX[idx], df$Latitude[idx], pch=19, cex=0.2)
+        lines(df$POSIX[idx],
+              rlmfit$fitted.values,
+              col = 2,
+              lwd = 3)
         # evaluate diff at jump
-        latitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+        latitude_pred_at_interval_left_right  <-
+          c(first(rlmfit$fitted.values),
+            last(rlmfit$fitted.values))
       }
       if (ilimit  > 1) {
-        points(df$POSIX[idx],df$Latitude[idx])
-        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        points(df$POSIX[idx], df$Latitude[idx], pch=19, cex=0.2)
+        lines(df$POSIX[idx],
+              rlmfit$fitted.values,
+              col = 2,
+              lwd = 3)
         #
-        latitude_pred_at_interval_left_right  <- rbind.data.frame(latitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+        latitude_pred_at_interval_left_right  <-
+          rbind.data.frame(latitude_pred_at_interval_left_right,
+                           c(
+                             first(rlmfit$fitted.values),
+                             last(rlmfit$fitted.values)
+                           ))
       }
     } # end length(idx)
   }
-  colnames(lat_speed) <- c("segment_number","lat_speed_radperhr")
+  colnames(lat_speed) <- c("segment_number", "lat_speed_radperhr")
   # Longitude
   longitude_pred_at_interval_left_right <- NULL
   lon_speed <- NULL
   # loop over limidates and model positions before and after each limitdate
   #plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
-  plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=namesnumbers[which(namesnumbers[,2] == statname),1])
+  plot(
+    df$POSIX,
+    df$Longitude,
+    type = "p",
+    xlim = range(df$POSIX),
+    ylim = range(df$Longitude, na.rm = T),
+    xlab = "Time",
+    ylab = "Longitude",
+    main = namesnumbers[which(namesnumbers[, 2] == statname), 1],
+    pch = 19,
+    cex = 0.2
+  )
   for (ilimit in 1:nlimits)
   {
-    idx <- which(df$POSIX >= limitdates[ilimit,1] & df$POSIX < limitdates[ilimit,2] & !is.na(df$Longitude) )
-    if (length(idx) != 0){
+    idx <-
+      which(df$POSIX >= limitdates[ilimit, 1] &
+              df$POSIX < limitdates[ilimit, 2] & !is.na(df$Longitude))
+    if (length(idx) != 0) {
       #print(c("f",length(idx)))
       rlmfit <- rlm(df$Longitude[idx] ~ df$POSIX[idx])
-      lon_speed <- rbind.data.frame(lon_speed,c(ilimit,summary(rlmfit)$coefficients[2]*3600/180*pi)) # radians per hour
+      lon_speed <-
+        rbind.data.frame(lon_speed,
+                         c(ilimit, summary(rlmfit)$coefficients[2] * 3600 / 180 * pi)) # radians per hour
       #print(c(rlmfit$fitted.values[1],last(rlmfit$fitted.values)))
       if (ilimit == 1) {
         #browser()
         #plot(df$POSIX[idx],df$Longitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
-        points(df$POSIX[idx],df$Longitude[idx])
-        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        points(df$POSIX[idx], df$Longitude[idx], pch=19, cex=0.2)
+        lines(df$POSIX[idx],
+              rlmfit$fitted.values,
+              col = 2,
+              lwd = 3)
         # evaluate diff at jump
-        longitude_pred_at_interval_left_right  <- c(first(rlmfit$fitted.values), last(rlmfit$fitted.values))
+        longitude_pred_at_interval_left_right  <-
+          c(first(rlmfit$fitted.values),
+            last(rlmfit$fitted.values))
       }
       if (ilimit  > 1) {
-        points(df$POSIX[idx],df$Longitude[idx])
-        lines(df$POSIX[idx],rlmfit$fitted.values,col=2,lwd=3)
+        points(df$POSIX[idx], df$Longitude[idx], pch=19, cex=0.2)
+        lines(df$POSIX[idx],
+              rlmfit$fitted.values,
+              col = 2,
+              lwd = 3)
         #
-        longitude_pred_at_interval_left_right  <- rbind.data.frame(longitude_pred_at_interval_left_right, c(first(rlmfit$fitted.values), last(rlmfit$fitted.values)))
+        longitude_pred_at_interval_left_right  <-
+          rbind.data.frame(longitude_pred_at_interval_left_right,
+                           c(
+                             first(rlmfit$fitted.values),
+                             last(rlmfit$fitted.values)
+                           ))
         
       }
     }
   }
-  colnames(lon_speed) <- c("segment_number","lon_speed_radperhr")
+  colnames(lon_speed) <- c("segment_number", "lon_speed_radperhr")
   
-  segment_speed <- Rearth*sqrt((lon_speed[,2]*cos(median(df$Latitude,na.rm=T)/180*pi))^2+(lat_speed[,2])^2) # meters per hour
+  segment_speed <-
+    Rearth * sqrt((lon_speed[, 2] * cos(median(
+      df$Latitude, na.rm = T
+    ) / 180 * pi)) ^ 2 + (lat_speed[, 2]) ^ 2) # meters per hour
   
-  return(list("lats"=latitude_pred_at_interval_left_right,"longs"=longitude_pred_at_interval_left_right,"segspeed"=segment_speed))
+  return(
+    list(
+      "lats" = latitude_pred_at_interval_left_right,
+      "longs" = longitude_pred_at_interval_left_right,
+      "segspeed" = segment_speed
+    )
+  )
 }
 ```
 
@@ -214,7 +291,7 @@ for (id in IDs)
   
 {
   print("------------------------------------------")
-  print(paste(" Processing unitID ",id))
+  print(paste(" Processing unitID ",id," = ",namesnumbers[which(namesnumbers[,2] == id),1]))
   mdx <- which(data$UnitId == id)
   df <- data[mdx,]
 
