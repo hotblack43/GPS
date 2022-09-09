@@ -89,7 +89,8 @@ for (ifil in IDs)
 {
   name <- ifil
   print("------------------------------------------")
-  print(paste(" Processing file ",name))
+  nom <- namesnumbers[which(namesnumbers[,2] == name),1]
+  print(paste(" Processing file ",name," = ",nom))
   
   sdx <- which(data$UnitId == ifil)
   df <- data[sdx,]
