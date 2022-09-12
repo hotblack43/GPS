@@ -78,7 +78,8 @@ important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022
                      as.POSIXct("2022-06-15 02:00:00",tz="UTC"),as.POSIXct("2022-06-25 00:00:00",tz="UTC"),
                      as.POSIXct("2022-06-25 00:00:00",tz="UTC"),as.POSIXct("2022-06-30 23:00:00",tz="UTC"),
                      as.POSIXct("2022-06-30 23:00:00",tz="UTC"),as.POSIXct("2022-07-14 02:00:00",tz="UTC"),
-                     as.POSIXct("2022-07-14 23:00:00",tz="UTC"),as.POSIXct("2022-08-02 02:00:00",tz="UTC"))
+                     as.POSIXct("2022-07-14 02:00:00",tz="UTC"),as.POSIXct("2022-08-02 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-08-02 02:00:00",tz="UTC"),as.POSIXct("2023-08-02 02:00:00",tz="UTC"))
 list_of_eventful_dates <- unique(sort(important_times))
 limitdates <- NULL 
 for (it in seq(from=1,to=length(important_times),by=2))
@@ -129,8 +130,8 @@ model_motion2 <- function(df, name, limitdates)
   # Latitude
   latitude_pred_at_interval_left_right <- NULL
   lat_speed <- NULL
-  # loop over limidates and model positions before and after each limitdate
-  #plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
+  # loop over limidates and model positions before and after each limit date
+  # plot(df$POSIX,df$Latitude,type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
   plot(
     df$POSIX,
     df$Latitude,
@@ -304,9 +305,11 @@ for (id in IDs)
   print(segspeeds)
   
   # get surge speeds
-  speeds <- get_surge_speeds(listerne,lon=median(df$Longitude,na.rm=T),lat=median(df$Latitude,na.rm=T))
-  print(speeds)
+  surge_speeds <- get_surge_speeds(listerne,lon=median(df$Longitude,na.rm=T),lat=median(df$Latitude,na.rm=T))
+  print(surge_speeds)
   #browser()
+  print(length(segspeeds))
+  print(length(surge_speeds))
 }
 print("------------------------------------------")
 ```
