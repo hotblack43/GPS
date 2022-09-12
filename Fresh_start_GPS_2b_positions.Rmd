@@ -18,6 +18,8 @@ library(lubridate)
 library(MASS)
 library(dsm)
 library(anytime)
+library(Hmisc)
+library(texreg)
 
 Rearth <- 6371*1e3 # meters
 
@@ -256,7 +258,7 @@ model_motion2 <- function(df, name, limitdates)
         
         #leftrightdates <- rbind.data.frame(leftrightdates,c(limitdates[ilimit, 1],limitdates[ilimit, 2]))
         leftrightdates <- rbind(leftrightdates,as.POSIXct(limitdates[ilimit, ],origin="1970-01-01 00:00:00",tz="UTC"))
-        print(as.character(as.POSIXct(limitdates[ilimit, ],origin="1970-01-01 00:00:00",tz="UTC")))
+        #print(as.character(as.POSIXct(limitdates[ilimit, ],origin="1970-01-01 00:00:00",tz="UTC")))
         #browser()
       }
     }
@@ -269,7 +271,7 @@ model_motion2 <- function(df, name, limitdates)
     ) / 180 * pi)) ^ 2 + (lat_speed[, 2]) ^ 2) # meters per hour
   
   
-  browser() 
+  #browser() 
   return(
     list(
       "lats" = latitude_pred_at_interval_left_right,
@@ -319,7 +321,7 @@ for (id in IDs)
   print(paste(" Processing unitID ",id," = ",namesnumbers[which(namesnumbers[,2] == id),1]))
   mdx <- which(data$UnitId == id)
   df <- data[mdx,]
-
+  
   # model speed as unconnected straight line segments
   listerne <- model_motion2(df,id,limitdates)
   #browser()
@@ -332,13 +334,23 @@ for (id in IDs)
   print(surge_speeds)
   #browser()
   # 
+  table <- NULL
   for (ijk in 1:(length(segspeeds)-1))
   {
-    print(c(ijk,unname(as.POSIXct(unlist(listerne$left_right_dates[ijk,]),origin="1970-01-01 00:00:00",tz="UTC")),segspeeds[ijk]))
-    print(c(ijk,unname(as.POSIXct(unlist(listerne$left_right_dates[ijk,]),origin="1970-01-01 00:00:00",tz="UTC")),surge_speeds$speed_jump[ijk,2]))
-  }
-  print(c(ijk,unname(as.POSIXct(unlist(listerne$left_right_dates[ijk,]),origin="1970-01-01 00:00:00",tz="UTC")),segspeeds[length(segspeeds)]))
-}
+    
+    print(paste(as.POSIXct(listerne$left_right_dates[ijk,1],origin='1970-01-01 00:00:00',tz='UTC'),                             segspeeds[ijk],as.POSIXct(listerne$left_right_dates[ijk,2],origin='1970-01-01 00:00:00',tz='UTC'),round(surge_speeds$speed_jump[ijk,2],1)))
+    
+    table <- rbind(table,paste(as.POSIXct(listerne$left_right_dates[ijk,1],origin='1970-01-01 00:00:00',tz='UTC'),                             segspeeds[ijk],as.POSIXct(listerne$left_right_dates[ijk,2],origin='1970-01-01 00:00:00',tz='UTC'),round(surge_speeds$speed_jump[ijk,2],1))) 
+  } # ijk loop
+  print(paste(as.POSIXct(listerne$left_right_dates[ijk,1],origin='1970-01-01 00:00:00',tz='UTC'),segspeeds[length(segspeeds)]))
+  table <- rbind(table,paste(as.POSIXct(listerne$left_right_dates[ijk,1],origin='1970-01-01 00:00:00',tz='UTC'),segspeeds[length(segspeeds)]))
+  #
+  
+  #browser()
+  outnam <- paste0("TEXTABLES/table_",namesnumbers[which(namesnumbers[,2] == id),1],".txt")
+  #latex(table,file=outnam,caption.loc='top',rowname=NULL,caption="hejsaCaptionHere",label=paste0('tab:table-',namesnumbers[which(namesnumbers[,2] == id),1]))
+  writeLines(table, con=outnam)
+} # id loop
 
 print("------------------------------------------")
 
