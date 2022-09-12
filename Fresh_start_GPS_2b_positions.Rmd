@@ -148,7 +148,8 @@ model_motion2 <- function(df, name, limitdates)
   {
     idx <-
       which(df$POSIX >= limitdates[ilimit, 1] &
-              df$POSIX < limitdates[ilimit, 2] & !is.na(df$Latitude))
+              df$POSIX < limitdates[ilimit, 2] &
+              !is.na(df$Latitude))
     if (length(idx) != 0) {
       rlmfit <- rlm(df$Latitude[idx] ~ df$POSIX[idx])
       lat_speed <-
@@ -156,7 +157,10 @@ model_motion2 <- function(df, name, limitdates)
                          c(ilimit, summary(rlmfit)$coefficients[2] * 3600 / 180 * pi)) # radians per hour
       if (ilimit == 1) {
         #plot(df$POSIX[idx],df$Latitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Latitude,na.rm=T),xlab="Time",ylab="Latitude",main=statname)
-        points(df$POSIX[idx], df$Latitude[idx], pch=19, cex=0.2)
+        points(df$POSIX[idx],
+               df$Latitude[idx],
+               pch = 19,
+               cex = 0.2)
         lines(df$POSIX[idx],
               rlmfit$fitted.values,
               col = 2,
@@ -167,7 +171,10 @@ model_motion2 <- function(df, name, limitdates)
             last(rlmfit$fitted.values))
       }
       if (ilimit  > 1) {
-        points(df$POSIX[idx], df$Latitude[idx], pch=19, cex=0.2)
+        points(df$POSIX[idx],
+               df$Latitude[idx],
+               pch = 19,
+               cex = 0.2)
         lines(df$POSIX[idx],
               rlmfit$fitted.values,
               col = 2,
@@ -186,6 +193,7 @@ model_motion2 <- function(df, name, limitdates)
   # Longitude
   longitude_pred_at_interval_left_right <- NULL
   lon_speed <- NULL
+  leftrightdates <- NULL
   # loop over limidates and model positions before and after each limitdate
   #plot(df$POSIX,df$Longitude,type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
   plot(
@@ -204,7 +212,8 @@ model_motion2 <- function(df, name, limitdates)
   {
     idx <-
       which(df$POSIX >= limitdates[ilimit, 1] &
-              df$POSIX < limitdates[ilimit, 2] & !is.na(df$Longitude))
+              df$POSIX < limitdates[ilimit, 2] &
+              !is.na(df$Longitude))
     if (length(idx) != 0) {
       #print(c("f",length(idx)))
       rlmfit <- rlm(df$Longitude[idx] ~ df$POSIX[idx])
@@ -215,7 +224,10 @@ model_motion2 <- function(df, name, limitdates)
       if (ilimit == 1) {
         #browser()
         #plot(df$POSIX[idx],df$Longitude[idx],type="p",xlim=range(df$POSIX),ylim=range(df$Longitude,na.rm=T),xlab="Time",ylab="Longitude",main=statname)
-        points(df$POSIX[idx], df$Longitude[idx], pch=19, cex=0.2)
+        points(df$POSIX[idx],
+               df$Longitude[idx],
+               pch = 19,
+               cex = 0.2)
         lines(df$POSIX[idx],
               rlmfit$fitted.values,
               col = 2,
@@ -226,7 +238,10 @@ model_motion2 <- function(df, name, limitdates)
             last(rlmfit$fitted.values))
       }
       if (ilimit  > 1) {
-        points(df$POSIX[idx], df$Longitude[idx], pch=19, cex=0.2)
+        points(df$POSIX[idx],
+               df$Longitude[idx],
+               pch = 19,
+               cex = 0.2)
         lines(df$POSIX[idx],
               rlmfit$fitted.values,
               col = 2,
@@ -239,6 +254,10 @@ model_motion2 <- function(df, name, limitdates)
                              last(rlmfit$fitted.values)
                            ))
         
+        #leftrightdates <- rbind.data.frame(leftrightdates,c(limitdates[ilimit, 1],limitdates[ilimit, 2]))
+        leftrightdates <- rbind(leftrightdates,as.POSIXct(limitdates[ilimit, ],origin="1970-01-01 00:00:00",tz="UTC"))
+        print(as.character(as.POSIXct(limitdates[ilimit, ],origin="1970-01-01 00:00:00",tz="UTC")))
+        #browser()
       }
     }
   }
@@ -249,12 +268,16 @@ model_motion2 <- function(df, name, limitdates)
       df$Latitude, na.rm = T
     ) / 180 * pi)) ^ 2 + (lat_speed[, 2]) ^ 2) # meters per hour
   
+  
+  browser() 
   return(
     list(
       "lats" = latitude_pred_at_interval_left_right,
       "longs" = longitude_pred_at_interval_left_right,
-      "segspeed" = segment_speed
+      "segspeed" = segment_speed,
+      "left_right_dates" = leftrightdates
     )
+    
   )
 }
 ```
@@ -299,7 +322,7 @@ for (id in IDs)
 
   # model speed as unconnected straight line segments
   listerne <- model_motion2(df,id,limitdates)
-  
+  #browser()
   segspeeds <- round(listerne$segspeed,2)
   print("Segment speeds in m/hr : ")
   print(segspeeds)
@@ -308,17 +331,17 @@ for (id in IDs)
   surge_speeds <- get_surge_speeds(listerne,lon=median(df$Longitude,na.rm=T),lat=median(df$Latitude,na.rm=T))
   print(surge_speeds)
   #browser()
-  print(length(segspeeds))
-  print(dim(surge_speeds$speed_jump))
   # 
   for (ijk in 1:(length(segspeeds)-1))
   {
-    print(c(ijk,segspeeds[ijk]))
-    print(c(ijk,surge_speeds$speed_jump[ijk,2]))
+    print(c(ijk,unname(as.POSIXct(unlist(listerne$left_right_dates[ijk,]),origin="1970-01-01 00:00:00",tz="UTC")),segspeeds[ijk]))
+    print(c(ijk,unname(as.POSIXct(unlist(listerne$left_right_dates[ijk,]),origin="1970-01-01 00:00:00",tz="UTC")),surge_speeds$speed_jump[ijk,2]))
   }
-  print(c(ijk,segspeeds[length(segspeeds)]))
+  print(c(ijk,unname(as.POSIXct(unlist(listerne$left_right_dates[ijk,]),origin="1970-01-01 00:00:00",tz="UTC")),segspeeds[length(segspeeds)]))
 }
+
 print("------------------------------------------")
+
 ```
 
 # Summary of eventful dates
