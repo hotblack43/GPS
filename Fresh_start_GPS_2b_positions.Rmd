@@ -348,7 +348,6 @@ for (id in IDs)
   
   #browser()
   outnam <- paste0("TEXTABLES/table_",namesnumbers[which(namesnumbers[,2] == id),1],".txt")
-  #latex(table,file=outnam,caption.loc='top',rowname=NULL,caption="hejsaCaptionHere",label=paste0('tab:table-',namesnumbers[which(namesnumbers[,2] == id),1]))
   writeLines(table, con=outnam)
 } # id loop
 
