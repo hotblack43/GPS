@@ -8,7 +8,7 @@ output:
 
 Plots the GPS positions as eastings and northings on a map.
 
-TODO: When printing the segment and jump speeds, need to also print the dates that go with the jumps, make a joint tbale for all units
+TODO: When printing the segment and jump speeds, need to also print the dates that go with the jumps, make a joint table for all units
 
 ```{r}
 rm(list=ls())
