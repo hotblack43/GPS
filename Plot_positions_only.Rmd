@@ -1,0 +1,117 @@
+---
+title: "Plot positions"
+output: 
+  pdf_document: 
+    fig_height: 9
+---
+
+
+Plots the GPS positions as eastings and northings on a map.
+# add velocity vectors and colour-code by date
+
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/GPS/")
+library(dplyr)
+library(lubridate)
+library(MASS)
+library(dsm)
+library(anytime)
+
+Rearth <- 6371*1e3 # meters
+
+data <- readRDS("OUTPUT/combined_GPS_data.rds")
+IDs <- sort(unique(data$UnitID))
+```
+
+
+# read and plot each file
+```{r,fig.width=6,fig.height=9}
+
+# list the important times - start, jumps, ending:
+important_times <- c(as.POSIXct("2022-03-31 00:00:00",tz="UTC"),as.POSIXct("2022-04-07 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-07 00:00:00",tz="UTC"),as.POSIXct("2022-04-24 12:00:00",tz="UTC"),
+                     as.POSIXct("2022-04-24 12:00:00",tz="UTC"),as.POSIXct("2022-04-27 12:00:01",tz="UTC"),
+                     as.POSIXct("2022-04-27 12:00:01",tz="UTC"),as.POSIXct("2022-05-03 03:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-03 03:00:00",tz="UTC"),as.POSIXct("2022-05-19 22:00:00",tz="UTC"),
+                     as.POSIXct("2022-05-19 22:00:00",tz="UTC"),as.POSIXct("2022-06-09 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-09 02:00:00",tz="UTC"),as.POSIXct("2022-06-15 02:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-15 02:00:00",tz="UTC"),as.POSIXct("2022-06-25 00:00:00",tz="UTC"),
+                     as.POSIXct("2022-06-25 00:00:00",tz="UTC"),as.POSIXct("2023-06-20 02:00:00",tz="UTC"))
+limitdates <- NULL 
+for (it in seq(from=1,to=length(important_times),by=2))
+{  limitdates <- rbind(limitdates,c(anytime(important_times[it],asUTC=T),anytime(important_times[it+1],asUTC=T)))}
+
+
+for (ifil in IDs)
+{
+  name <- ifil
+  print("------------------------------------------")
+  print(paste(" Processing file ",name))
+  
+  
+  sdx <- which(data$UnitID == ifil)
+  df <- data[sdx,]
+  df <- na.omit(df)
+  xy <- latlong2km(df$lon, df$lat)
+  #delta_t <- unname((max(df$UTC)-min(df$UTC))/nrow(df))[[1]] # days
+  plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=name,type="p",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
+  #legend("topleft",legend=paste("Step length : ",round(delta_t*24,2)," hours"))
+  #png(paste0("FIGURES/map_",name,'.png'))
+  #plot(xy$km.e*1000,xy$km.n*1000,asp=1,main=name,type="p",pch=19,cex=0.3,xlab="meters East-West",ylab="meters North-South")
+  #dev.off()    
+  
+  # overplot colours for each segment
+  for (iseg in 1:nrow(limitdates))
+  {
+    idx <- which(df$POSIX >= limitdates[iseg,1] & df$POSIX < limitdates[iseg,2])
+    points(xy$km.e[idx]*1000,xy$km.n[idx]*1000,col=iseg,pch=19,cex=0.4)
+    
+    
+  } # end iseg loop
+  print("------------------------------------------")
+} # end ifil loop
+```
+
+# Plot one map with all movements
+```{r}
+idx <- which(data$lon > -69)   # -169 try also!
+minlon <- min(data$lon[idx])
+maxlon <- max(data$lon[idx])
+minlat <- min(data$lat[idx])
+maxlat <- max(data$lat[idx])
+#
+colids <- c("red","green","blue","grey","orange","yellow","black")
+plot(data$lon[idx],data$lat[idx],xlab='longitude',ylab='latitude',pch=19,cex=0.1)
+for (i in 1:length(IDs))
+{
+  idx <- which(data$UnitID == IDs[i])
+  print(colids[i])
+  points(data$lon[idx],data$lat[idx],col=colids[i],pch=19,cex=0.1,type="b")
+  
+}
+```
+# add velocity vectors and colour-code by date
+
+#
+```{r}
+# Generate a plot of color names which R knows about.
+#++++++++++++++++++++++++++++++++++++++++++++
+# cl : a vector of colors to plots
+# bg: background of the plot
+# rot: text rotation angle
+#usage=showCols(bg="gray33")
+showCols <- function(cl=colors(), bg = "grey",
+                     cex = 0.75, rot = 30) {
+  m <- ceiling(sqrt(n <-length(cl)))
+  length(cl) <- m*m; cm <- matrix(cl, m)
+  require("grid")
+  grid.newpage(); vp <- viewport(w = .92, h = .92)
+  grid.rect(gp=gpar(fill=bg))
+  grid.text(cm, x = col(cm)/m, y = rev(row(cm))/m, rot = rot,
+            vp=vp, gp=gpar(cex = cex, col = cm))
+}
+showCols()
+```
+
