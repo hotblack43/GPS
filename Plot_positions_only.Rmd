@@ -18,6 +18,7 @@ library(lubridate)
 library(MASS)
 library(dsm)
 library(anytime)
+library(ggmap)
 
 Rearth <- 6371*1e3 # meters
 
@@ -76,42 +77,18 @@ for (ifil in IDs)
 
 # Plot one map with all movements
 ```{r}
-idx <- which(data$lon > -69)   # -169 try also!
-minlon <- min(data$lon[idx])
-maxlon <- max(data$lon[idx])
-minlat <- min(data$lat[idx])
-maxlat <- max(data$lat[idx])
-#
-colids <- c("red","green","blue","grey","orange","yellow","black")
-plot(data$lon[idx],data$lat[idx],xlab='longitude',ylab='latitude',pch=19,cex=0.1)
-for (i in 1:length(IDs))
-{
-  idx <- which(data$UnitID == IDs[i])
-  print(colids[i])
-  points(data$lon[idx],data$lat[idx],col=colids[i],pch=19,cex=0.1,type="b")
-  
-}
+zoom <- 11
+Qaanaaq <-  get_map(    location = c(lon = -66.42, lat = 77.65),    maptyp="satellite",    zoom = zoom,    color= 'color',    source = 'google'  )
+#Qaanaaq <- get_stamenmap(bbox = c(left=-67, bottom = 77, right = -64, top = 78), zoom = 9, maptype = "terrain", crop = FALSE)
+p <- ggmap(Qaanaaq)
+p + geom_point(
+  data = data,
+  aes(x = lon, y = lat),
+  size = .4,
+  colour=data$UnitID+3,
+  alpha = 0.5
+)  
+ggsave("FIGURES/map_Qaanaq_GPS.png")
 ```
-# add velocity vectors and colour-code by date
-
-#
-```{r}
-# Generate a plot of color names which R knows about.
-#++++++++++++++++++++++++++++++++++++++++++++
-# cl : a vector of colors to plots
-# bg: background of the plot
-# rot: text rotation angle
-#usage=showCols(bg="gray33")
-showCols <- function(cl=colors(), bg = "grey",
-                     cex = 0.75, rot = 30) {
-  m <- ceiling(sqrt(n <-length(cl)))
-  length(cl) <- m*m; cm <- matrix(cl, m)
-  require("grid")
-  grid.newpage(); vp <- viewport(w = .92, h = .92)
-  grid.rect(gp=gpar(fill=bg))
-  grid.text(cm, x = col(cm)/m, y = rev(row(cm))/m, rot = rot,
-            vp=vp, gp=gpar(cex = cex, col = cm))
-}
-showCols()
-```
+ 
 
