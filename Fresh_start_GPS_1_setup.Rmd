@@ -5,7 +5,10 @@ output:
     fig_height: 6
 ---
 
-Read Ruth's GPS data via the API
+Read Ruth's GPS data via the API.
+Does not work at the moment - the API details must have changed.
+
+Try to read .xlsx files downloaded, instead!
 
 ```{r}
 rm(list=ls()) 

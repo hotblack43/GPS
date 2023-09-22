@@ -75,20 +75,7 @@ for (ifil in IDs)
 } # end ifil loop
 ```
 
-# Plot one map with all movements
-```{r}
-zoom <- 11
-Qaanaaq <-  get_map(    location = c(lon = -66.42, lat = 77.65),    maptyp="satellite",    zoom = zoom,    color= 'color',    source = 'google'  )
-#Qaanaaq <- get_stamenmap(bbox = c(left=-67, bottom = 77, right = -64, top = 78), zoom = 9, maptype = "terrain", crop = FALSE)
-p <- ggmap(Qaanaaq)
-p + geom_point(
-  data = data,
-  aes(x = lon, y = lat),
-  size = .4,
-  colour=data$UnitID+3,
-  alpha = 0.5
-)  
-ggsave("FIGURES/map_Qaanaq_GPS.png")
-```
+
+
  
 
